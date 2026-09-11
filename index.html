@@ -77,6 +77,8 @@ p{margin:0;}
 .mini:disabled{opacity:.4; cursor:default;}
 .mini-ok{background:var(--gronn); color:var(--ink); border-color:var(--gronn); font-weight:600;}
 .mini-fare{color:var(--hot); border-color:#5A2338;}
+.mini-sub{background:var(--gold); color:var(--ink); border-color:var(--gold); font-weight:600;}
+.mini-sub:hover{background:#FFD174;}
 
 .felt{background:var(--spor); color:var(--paper); border:1px solid var(--line); border-radius:7px; padding:7px 10px; font-size:14px; font-family:inherit;}
 .felt-mini{width:82px; padding:5px 8px; font-size:13px;}
@@ -177,7 +179,7 @@ async function start() {
     tilkoblet = true;
     const v = snap.val();
     if (!v) {
-      data = { total: 0, goals: {}, rai: { title: "Rai rai med energidrikk", unit: 25, kjopt: 0, tatt: 0 }, logg: [], updatedAt: Date.now() };
+      data = { total: 0, goals: {}, rai: { title: "Rai rai med energidrikk", unit: 25, kjopt: 0, tatt: 0 }, sub: { verdi: 50, antall: 0 }, logg: [], updatedAt: Date.now() };
       STARTMAL.forEach(g => (data.goals[g.id] = g));
       if (bruker) set(tavleRef, data);
     } else {
@@ -189,6 +191,7 @@ async function start() {
       data = v;
       if (!data.goals) data.goals = {};
       if (!data.rai) data.rai = { title: "Rai rai med energidrikk", unit: 25, kjopt: 0, tatt: 0 };
+      if (!data.sub) data.sub = { verdi: 50, antall: 0 };
     }
     tegn();
   }, () => { tilkoblet = false; tegn(); });
@@ -205,14 +208,16 @@ async function start() {
   // ---- skriveoperasjoner ----
   const stempel = () => update(tavleRef, { updatedAt: Date.now() });
 
-  function leggTil(belop, merke) {
+  function leggTil(belop, merke, antall) {
     const b = Number(belop);
+    const n = Number(antall) || 1;
     if (!b) return;
     runTransaction(tavleRef, cur => {
       if (!cur) return cur;
       cur.total = Math.max(0, (cur.total || 0) + b);
-      cur.logg = [{ t: Date.now(), b, merke: merke || null }, ...(cur.logg || [])].slice(0, 12);
+      cur.logg = [{ t: Date.now(), b, merke: merke || null, n }, ...(cur.logg || [])].slice(0, 12);
       if (merke === "rai") cur.rai.kjopt = (cur.rai.kjopt || 0) + 1;
+      if (merke === "sub") { if (!cur.sub) cur.sub = { verdi: 50, antall: 0 }; cur.sub.antall = (cur.sub.antall || 0) + n; }
       cur.updatedAt = Date.now();
       return cur;
     });
@@ -223,6 +228,7 @@ async function start() {
       const [siste, ...rest] = cur.logg;
       cur.total = Math.max(0, cur.total - siste.b);
       if (siste.merke === "rai") cur.rai.kjopt = Math.max(0, cur.rai.kjopt - 1);
+      if (siste.merke === "sub" && cur.sub) cur.sub.antall = Math.max(0, (cur.sub.antall || 0) - (siste.n || 1));
       cur.logg = rest;
       cur.updatedAt = Date.now();
       return cur;
@@ -231,6 +237,7 @@ async function start() {
   const settMal = (id, patch) => { update(ref(db, "tavle/goals/" + id), patch); stempel(); };
   const slettMal = id => { set(ref(db, "tavle/goals/" + id), null); stempel(); };
   const settRai = patch => { update(ref(db, "tavle/rai"), patch); stempel(); };
+  const settSub = patch => { update(ref(db, "tavle/sub"), patch); stempel(); };
   function nyttMal(title, sum) {
     const id = "m" + Date.now();
     set(ref(db, "tavle/goals/" + id), { id, title, sum: Math.max(1, Number(sum) || 1000), done: false });
@@ -239,7 +246,7 @@ async function start() {
   function nullstill() {
     const goals = {};
     mal().forEach(g => (goals[g.id] = { ...g, done: false }));
-    set(tavleRef, { ...data, total: 0, logg: [], goals, rai: { ...data.rai, kjopt: 0, tatt: 0 }, updatedAt: Date.now() });
+    set(tavleRef, { ...data, total: 0, logg: [], goals, rai: { ...data.rai, kjopt: 0, tatt: 0 }, sub: { ...data.sub, antall: 0 }, updatedAt: Date.now() });
   }
 
   // ---- visning ----
@@ -298,6 +305,7 @@ async function start() {
       <h2 class="hero-tall-stor">${kr(data.total)}</h2>
       ${stige()}
       ${neste ? `<p class="hero-rest">${kr(neste.sum - data.total)} igjen til ${esc(neste.title)}</p>` : ""}
+      <p class="muted liten" style="margin-top:10px">${data.sub.antall || 0} subs regnet inn · ${kr(data.sub.verdi)} per sub</p>
     </section>
 
     <section class="raikort">
@@ -336,7 +344,8 @@ async function start() {
   function adminHtml() {
     const liste = mal();
     const vist = retning === "lav" ? liste : [...liste].reverse();
-    const logg = (data.logg || []).slice(0, 6).map(l => (l.b > 0 ? "+" : "") + l.b + (l.merke === "rai" ? " rai" : "")).join(", ");
+    const logg = (data.logg || []).slice(0, 6).map(l => (l.b > 0 ? "+" : "") + l.b
+      + (l.merke === "rai" ? " rai" : l.merke === "sub" ? " (" + (l.n || 1) + " sub)" : "")).join(", ");
     return `
     <header class="topp">
       <div><h1 class="merke">Adminside</h1>
@@ -357,6 +366,13 @@ async function start() {
         <input class="felt felt-mini" type="number" id="egetBelop" placeholder="kr">
         <button class="mini mini-ok" id="leggEget">Legg til</button>
         <button class="mini" data-rai="1">+1 rai rai (${data.rai.unit} kr)</button>
+      </div>
+      <div class="verktoy">
+        <button class="mini mini-sub" data-sub="1">+1 sub</button>
+        <button class="mini mini-sub" data-sub="5">+5 subs</button>
+        <span class="muted liten" style="align-self:center">${data.sub.antall || 0} subs så langt · verdi per sub</span>
+        <input class="felt felt-mini" type="number" id="subVerdi" value="${data.sub.verdi}">
+        <button class="mini" id="lagreSub">Lagre</button>
       </div>
       ${logg ? `<p class="muted liten" style="margin-top:12px">Siste: ${esc(logg)}</p>` : ""}
     </section>
@@ -432,6 +448,15 @@ async function start() {
 
     document.querySelectorAll("[data-legg]").forEach(b => b.onclick = () => leggTil(b.dataset.legg));
     document.querySelectorAll("[data-rai]").forEach(b => b.onclick = () => leggTil(data.rai.unit, "rai"));
+    document.querySelectorAll("[data-sub]").forEach(b => {
+      const n = Number(b.dataset.sub);
+      b.onclick = () => leggTil(data.sub.verdi * n, "sub", n);
+    });
+    const ls = document.getElementById("lagreSub");
+    if (ls) ls.onclick = () => {
+      const v = Math.max(1, Number(document.getElementById("subVerdi").value) || data.sub.verdi);
+      settSub({ verdi: v });
+    };
 
     const eget = document.getElementById("leggEget");
     if (eget) {
