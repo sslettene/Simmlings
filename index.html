@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>simmlings måltavle</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600&family=Archivo+Black&display=swap');
+
+:root{
+  --ink:#1B1029; --panel:#271A38; --panel2:#33234A; --line:#453058; --spor:#140B20;
+  --paper:#F4EDE6; --muted:#A996BD; --hot:#FF3D6E; --gold:#FFC24B; --gronn:#5FD68B;
+}
+*{box-sizing:border-box;}
+html,body{margin:0; padding:0; background:var(--ink);}
+body{
+  color:var(--paper); min-height:100vh;
+  font-family:'Archivo',system-ui,sans-serif; font-variant-numeric:tabular-nums;
+  padding:24px max(20px, calc(50% - 410px)) 48px;
+}
+h1,h2,h3,h4{font-family:'Archivo Black',system-ui,sans-serif; font-weight:400; margin:0; letter-spacing:-0.01em;}
+p{margin:0;}
+.muted{color:var(--muted);} .liten{font-size:13px;}
+.skjult{display:none !important;}
+
+.topp{display:flex; justify-content:space-between; align-items:flex-end; gap:16px; padding-bottom:18px; border-bottom:2px solid var(--line);}
+.merke{font-size:30px; line-height:1;}
+.undertekst{margin:6px 0 0; font-size:14px; color:var(--muted);}
+.statusrad{display:flex; align-items:center; gap:8px;}
+.prikk{width:9px; height:9px; border-radius:50%; background:var(--gronn); animation:puls 2.4s infinite;}
+.prikk-av{background:var(--muted); animation:none;}
+@keyframes puls{0%{box-shadow:0 0 0 0 rgba(95,214,139,.5);}70%{box-shadow:0 0 0 7px rgba(95,214,139,0);}100%{box-shadow:0 0 0 0 rgba(95,214,139,0);}}
+
+.hero{background:var(--panel); border:2px solid var(--line); border-radius:14px; padding:22px; margin:20px 0 14px; transition:border-color .8s;}
+.hero.blink{border-color:var(--hot); transition:none;}
+.hero-merkelapp{margin:0 0 4px; font-size:13px; color:var(--gold); font-weight:600;}
+.hero-tall-stor{font-size:46px; line-height:1; margin-bottom:18px;}
+.hero-rest{margin:14px 0 0; font-size:15px; color:var(--hot); font-weight:600;}
+
+.spor{position:relative; height:20px; background:var(--spor); border-radius:99px; overflow:hidden;}
+.fyll{height:100%; background:var(--hot); border-radius:99px; transition:width .7s cubic-bezier(.2,.8,.2,1);}
+.fyll-klar{background:var(--gold);} .fyll-gjort{background:var(--gronn); opacity:.5;}
+.hakk{position:absolute; top:0; width:2px; height:100%; background:var(--ink);}
+.hakk-nadd{background:var(--gold);}
+.stige-tekst{display:flex; justify-content:space-between; margin-top:7px; gap:12px;}
+
+.raikort{display:flex; justify-content:space-between; align-items:center; gap:14px; flex-wrap:wrap;
+  background:var(--panel); border:1px dashed var(--line); border-radius:11px; padding:14px 16px; margin-bottom:18px;}
+.raikort h4{font-size:16px;}
+.raitall{display:flex; gap:14px; align-items:center; font-size:13px; color:var(--muted);}
+.raitall strong{font-family:'Archivo Black',sans-serif; color:var(--paper); font-size:16px; margin-right:3px;}
+
+.sorterad{display:flex; align-items:center; gap:10px; margin:0 0 12px;}
+.liste{display:flex; flex-direction:column; gap:10px;}
+
+.rad{background:var(--panel); border:1px solid var(--line); border-radius:11px; padding:14px 16px;}
+.radtopp{display:flex; justify-content:space-between; align-items:baseline; gap:12px;}
+.rad h4{font-size:17px;}
+.radsum{font-family:'Archivo Black',sans-serif; font-size:15px; color:var(--muted); white-space:nowrap;}
+.rad .tall{margin:5px 0 10px; font-size:14px; display:flex; flex-wrap:wrap; gap:8px; align-items:baseline;}
+.rad-klar{border-color:var(--gold);}
+.rad-gjort{opacity:.6;} .rad-gjort h4{text-decoration:line-through; text-decoration-thickness:2px;}
+.bar{height:8px; background:var(--spor); border-radius:99px; overflow:hidden;}
+
+.merke-gul{color:var(--ink); background:var(--gold); border-radius:99px; padding:1px 9px; font-size:12px; font-weight:600;}
+.merke-gronn{color:var(--ink); background:var(--gronn); border-radius:99px; padding:1px 9px; font-size:12px; font-weight:600;}
+
+.kasse{background:var(--panel); border:2px solid var(--line); border-radius:14px; padding:18px; margin:18px 0;}
+.kasse-topp{display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:12px;}
+.kasse-topp div{display:flex; flex-direction:column;}
+.kasse-sum{font-family:'Archivo Black',sans-serif; font-size:30px; line-height:1.1;}
+
+.verktoy{display:flex; flex-wrap:wrap; gap:6px; margin-top:12px; padding-top:12px; border-top:1px dashed var(--line);}
+.verktoy-ren{border-top:none; padding-top:0; margin-top:4px;}
+.mini{background:var(--panel2); color:var(--paper); border:1px solid var(--line); border-radius:7px; padding:5px 10px; font-size:13px; font-family:inherit; cursor:pointer;}
+.mini:hover{background:#3F2C58;}
+.mini:disabled{opacity:.4; cursor:default;}
+.mini-ok{background:var(--gronn); color:var(--ink); border-color:var(--gronn); font-weight:600;}
+.mini-fare{color:var(--hot); border-color:#5A2338;}
+
+.felt{background:var(--spor); color:var(--paper); border:1px solid var(--line); border-radius:7px; padding:7px 10px; font-size:14px; font-family:inherit;}
+.felt-mini{width:82px; padding:5px 8px; font-size:13px;}
+.felt-kort{width:130px;}
+
+.login{max-width:420px; margin:60px auto; background:var(--panel); border:2px solid var(--line); border-radius:14px; padding:26px;}
+.login h2{font-size:28px;} .login p{margin:8px 0 16px;}
+.login .felt{width:100%; margin-bottom:8px;}
+
+.seksjon{margin:26px 0;}
+.seksjon h3{font-size:17px; margin-bottom:12px;}
+.skjema{display:flex; flex-wrap:wrap; gap:8px; align-items:center; background:var(--panel); border:1px solid var(--line); border-radius:11px; padding:14px;}
+
+.bunn{display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; border-top:2px solid var(--line); padding-top:14px; margin-top:18px;}
+.rad-knapper{display:flex; align-items:center; gap:8px; flex-wrap:wrap;}
+.knapp{background:var(--hot); color:#fff; border:none; border-radius:7px; padding:7px 14px; font-size:14px; font-weight:600; font-family:inherit; cursor:pointer;}
+.knapp-svak{background:var(--panel2); border:1px solid var(--line); color:var(--paper); font-weight:500;}
+.feil{color:var(--hot); font-size:13px; margin-top:8px;}
+
+button:focus-visible,input:focus-visible{outline:2px solid var(--gold); outline-offset:2px;}
+
+@media (max-width:520px){
+  body{padding:18px 14px 36px;}
+  .merke{font-size:24px;} .hero-tall-stor{font-size:36px;} .kasse-sum{font-size:25px;}
+  .topp{align-items:flex-start; flex-direction:column;}
+  .felt-kort{width:100%;}
+}
+@media (prefers-reduced-motion:reduce){ .fyll{transition:none;} .prikk{animation:none;} }
+</style>
+</head>
+<body>
+
+<div id="oppsett" class="skjult">
+  <div class="login">
+    <h2>Mangler oppsett</h2>
+    <p class="muted">Fyll inn Firebase-nøklene øverst i index.html, så starter tavla.</p>
+  </div>
+</div>
+
+<div id="app"></div>
+
+<script type="module">
+// ---------------------------------------------------------------
+// Firebase-oppsett for simmlings-donogoals
+// ---------------------------------------------------------------
+const firebaseConfig = {
+  apiKey: "AIzaSyCaPt7shoOUyYAQJVdBODj--_kbTgSgU7M",
+  authDomain: "simmlings-donogoals.firebaseapp.com",
+  databaseURL: "https://simmlings-donogoals-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "simmlings-donogoals",
+  storageBucket: "simmlings-donogoals.firebasestorage.app",
+  messagingSenderId: "454308280678",
+  appId: "1:454308280678:web:a39bb3ae1f844f9f18f0a7"
+};
+// ---------------------------------------------------------------
+
+const STARTMAL = [
+  { id: "gta5", title: "GTA 5 story mode maraton", sum: 1000, done: false },
+  { id: "bk", title: "Bare Burger King en hel dag", sum: 2000, done: false },
+  { id: "natt", title: "Nattbading", sum: 3000, done: false },
+  { id: "kcal", title: "10 000 kalorier på en dag", sum: 4000, done: false },
+  { id: "ps5", title: "PlayStation 5", sum: 5000, done: false }
+];
+
+if (!firebaseConfig.apiKey) {
+  document.getElementById("oppsett").classList.remove("skjult");
+} else {
+  start();
+}
+
+async function start() {
+  const { initializeApp } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js");
+  const { getDatabase, ref, onValue, set, update, runTransaction } =
+    await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js");
+  const { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } =
+    await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js");
+
+  const app = initializeApp(firebaseConfig);
+  const db = getDatabase(app);
+  const auth = getAuth(app);
+  const tavleRef = ref(db, "tavle");
+
+  let data = null, bruker = null, view = "tavle", retning = "lav", tilkoblet = false;
+  let forrigeTotal = null, blinker = false;
+
+  const kr = n => new Intl.NumberFormat("nb-NO").format(Math.round(n)) + " kr";
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const mal = () => Object.values((data && data.goals) || {}).sort((a, b) => a.sum - b.sum);
+  const siden = ts => {
+    const s = Math.max(0, Math.round((Date.now() - ts) / 1000));
+    if (s < 10) return "nå nettopp";
+    if (s < 60) return "for " + s + " sek siden";
+    const m = Math.round(s / 60);
+    return m < 60 ? "for " + m + " min siden" : "for " + Math.round(m / 60) + " t siden";
+  };
+
+  onValue(tavleRef, snap => {
+    tilkoblet = true;
+    const v = snap.val();
+    if (!v) {
+      data = { total: 0, goals: {}, rai: { title: "Rai rai med energidrikk", unit: 25, kjopt: 0, tatt: 0 }, logg: [], updatedAt: Date.now() };
+      STARTMAL.forEach(g => (data.goals[g.id] = g));
+      if (bruker) set(tavleRef, data);
+    } else {
+      if (forrigeTotal !== null && forrigeTotal !== v.total) {
+        blinker = true;
+        setTimeout(() => { blinker = false; tegn(); }, 1200);
+      }
+      forrigeTotal = v.total;
+      data = v;
+      if (!data.goals) data.goals = {};
+      if (!data.rai) data.rai = { title: "Rai rai med energidrikk", unit: 25, kjopt: 0, tatt: 0 };
+    }
+    tegn();
+  }, () => { tilkoblet = false; tegn(); });
+
+  onAuthStateChanged(auth, u => {
+    bruker = u;
+    if (!u && view === "admin") view = "tavle";
+    if (u && view === "login") view = "admin";
+    tegn();
+  });
+
+  setInterval(() => { if (data) tegn(); }, 20000);
+
+  // ---- skriveoperasjoner ----
+  const stempel = () => update(tavleRef, { updatedAt: Date.now() });
+
+  function leggTil(belop, merke) {
+    const b = Number(belop);
+    if (!b) return;
+    runTransaction(tavleRef, cur => {
+      if (!cur) return cur;
+      cur.total = Math.max(0, (cur.total || 0) + b);
+      cur.logg = [{ t: Date.now(), b, merke: merke || null }, ...(cur.logg || [])].slice(0, 12);
+      if (merke === "rai") cur.rai.kjopt = (cur.rai.kjopt || 0) + 1;
+      cur.updatedAt = Date.now();
+      return cur;
+    });
+  }
+  function angre() {
+    runTransaction(tavleRef, cur => {
+      if (!cur || !cur.logg || !cur.logg.length) return cur;
+      const [siste, ...rest] = cur.logg;
+      cur.total = Math.max(0, cur.total - siste.b);
+      if (siste.merke === "rai") cur.rai.kjopt = Math.max(0, cur.rai.kjopt - 1);
+      cur.logg = rest;
+      cur.updatedAt = Date.now();
+      return cur;
+    });
+  }
+  const settMal = (id, patch) => { update(ref(db, "tavle/goals/" + id), patch); stempel(); };
+  const slettMal = id => { set(ref(db, "tavle/goals/" + id), null); stempel(); };
+  const settRai = patch => { update(ref(db, "tavle/rai"), patch); stempel(); };
+  function nyttMal(title, sum) {
+    const id = "m" + Date.now();
+    set(ref(db, "tavle/goals/" + id), { id, title, sum: Math.max(1, Number(sum) || 1000), done: false });
+    stempel();
+  }
+  function nullstill() {
+    const goals = {};
+    mal().forEach(g => (goals[g.id] = { ...g, done: false }));
+    set(tavleRef, { ...data, total: 0, logg: [], goals, rai: { ...data.rai, kjopt: 0, tatt: 0 }, updatedAt: Date.now() });
+  }
+
+  // ---- visning ----
+  const app_ = document.getElementById("app");
+
+  function tegn() {
+    if (!data) { app_.innerHTML = '<p class="muted" style="padding:40px">Kobler til</p>'; return; }
+    if (view === "login") app_.innerHTML = loginHtml();
+    else if (view === "admin" && bruker) app_.innerHTML = adminHtml();
+    else app_.innerHTML = tavleHtml();
+    koble();
+  }
+
+  function loginHtml() {
+    return `<div class="login">
+      <h2>Adminside</h2>
+      <p class="muted">Logg inn for å oppdatere tavla. Seerne trenger ikke konto.</p>
+      <input class="felt" id="epost" type="email" placeholder="E-post" autocomplete="username">
+      <input class="felt" id="passord" type="password" placeholder="Passord" autocomplete="current-password">
+      <div class="rad-knapper">
+        <button class="knapp" id="loggInn">Logg inn</button>
+        <button class="knapp knapp-svak" data-view="tavle">Tilbake</button>
+      </div>
+      <p class="feil skjult" id="loginFeil">Feil e-post eller passord.</p>
+    </div>`;
+  }
+
+  function stige() {
+    const liste = mal();
+    if (!liste.length) return "";
+    const topp = liste[liste.length - 1];
+    const andel = Math.min(100, (data.total / topp.sum) * 100);
+    const hakk = liste.slice(0, -1).map(g =>
+      `<span class="hakk ${data.total >= g.sum ? "hakk-nadd" : ""}" style="left:${(g.sum / topp.sum) * 100}%"></span>`).join("");
+    return `<div class="spor"><div class="fyll" style="width:${andel}%"></div>${hakk}</div>
+      <div class="stige-tekst"><span class="muted liten">0 kr</span>
+      <span class="muted liten">${esc(topp.title)} på ${kr(topp.sum)}</span></div>`;
+  }
+
+  function tavleHtml() {
+    const liste = mal();
+    const neste = liste.find(g => data.total < g.sum);
+    const vist = retning === "lav" ? liste : [...liste].reverse();
+    const kø = Math.max(0, (data.rai.kjopt || 0) - (data.rai.tatt || 0));
+
+    return `
+    <header class="topp">
+      <div><h1 class="merke">simmlings</h1>
+      <p class="undertekst">Alt som kommer inn teller mot alle målene.</p></div>
+      <div class="statusrad"><span class="prikk ${tilkoblet ? "" : "prikk-av"}"></span>
+      <span class="muted liten">${tilkoblet ? "oppdateres live" : "ingen forbindelse"}</span></div>
+    </header>
+
+    <section class="hero ${blinker ? "blink" : ""}">
+      <p class="hero-merkelapp">${neste ? "Neste opp: " + esc(neste.title) : "Alle mål er låst opp"}</p>
+      <h2 class="hero-tall-stor">${kr(data.total)}</h2>
+      ${stige()}
+      ${neste ? `<p class="hero-rest">${kr(neste.sum - data.total)} igjen til ${esc(neste.title)}</p>` : ""}
+    </section>
+
+    <section class="raikort">
+      <div><h4>${esc(data.rai.title)}</h4>
+      <p class="tall muted liten">${kr(data.rai.unit)} per stk. Kommer i tillegg til stigen.</p></div>
+      <div class="raitall"><span><strong>${data.rai.kjopt || 0}</strong> kjøpt</span>
+      <span><strong>${data.rai.tatt || 0}</strong> tatt</span>
+      ${kø > 0 ? `<span class="merke-gul">${kø} i kø</span>` : ""}</div>
+    </section>
+
+    <div class="sorterad"><span class="muted liten">Sortert etter sum</span>
+      <button class="mini" id="snu">${retning === "lav" ? "Lavest først" : "Høyest først"}</button></div>
+
+    <div class="liste">${vist.map(radHtml).join("")}</div>
+
+    <footer class="bunn">
+      <span class="muted liten">Sist oppdatert ${siden(data.updatedAt || Date.now())}</span>
+      <button class="knapp knapp-svak" data-view="login">Adminside</button>
+    </footer>`;
+  }
+
+  function radHtml(g) {
+    const nadd = data.total >= g.sum;
+    const klasse = g.done ? "rad-gjort" : nadd ? "rad-klar" : "";
+    const merke = g.done ? '<span class="merke-gronn">Gjennomført</span>'
+      : nadd ? '<span class="merke-gul">Låst opp, venter på ham</span>'
+      : `<span class="muted">${kr(g.sum - data.total)} igjen</span>`;
+    return `<article class="rad ${klasse}">
+      <div class="radtopp"><h4>${esc(g.title)}</h4><span class="radsum">${kr(g.sum)}</span></div>
+      <p class="tall">${merke}</p>
+      <div class="bar"><div class="fyll ${g.done ? "fyll-gjort" : nadd ? "fyll-klar" : ""}"
+        style="width:${Math.min(100, (data.total / g.sum) * 100)}%"></div></div>
+    </article>`;
+  }
+
+  function adminHtml() {
+    const liste = mal();
+    const vist = retning === "lav" ? liste : [...liste].reverse();
+    const logg = (data.logg || []).slice(0, 6).map(l => (l.b > 0 ? "+" : "") + l.b + (l.merke === "rai" ? " rai" : "")).join(", ");
+    return `
+    <header class="topp">
+      <div><h1 class="merke">Adminside</h1>
+      <p class="undertekst">Legg inn beløp én gang. Det teller mot alle målene.</p></div>
+      <div class="rad-knapper">
+        <button class="knapp knapp-svak" data-view="tavle">Se tavla</button>
+        <button class="knapp knapp-svak" id="loggUt">Logg ut</button>
+      </div>
+    </header>
+
+    <section class="kasse">
+      <div class="kasse-topp">
+        <div><span class="muted liten">Samlet inn</span><strong class="kasse-sum">${kr(data.total)}</strong></div>
+        <button class="mini" id="angre" ${(data.logg || []).length ? "" : "disabled"}>Angre siste</button>
+      </div>
+      <div class="verktoy verktoy-ren">
+        ${[25, 50, 100, 250, 500, 1000].map(b => `<button class="mini" data-legg="${b}">+${b}</button>`).join("")}
+        <input class="felt felt-mini" type="number" id="egetBelop" placeholder="kr">
+        <button class="mini mini-ok" id="leggEget">Legg til</button>
+        <button class="mini" data-rai="1">+1 rai rai (${data.rai.unit} kr)</button>
+      </div>
+      ${logg ? `<p class="muted liten" style="margin-top:12px">Siste: ${esc(logg)}</p>` : ""}
+    </section>
+
+    <section class="raikort">
+      <div><h4>${esc(data.rai.title)}</h4>
+      <p class="tall muted liten">${data.rai.kjopt || 0} kjøpt · ${data.rai.tatt || 0} tatt · ${Math.max(0, (data.rai.kjopt || 0) - (data.rai.tatt || 0))} i kø</p></div>
+      <div class="rad-knapper">
+        <button class="mini mini-ok" id="raiTatt">Tatt en</button>
+        <button class="mini" id="raiAngre">Angre</button>
+      </div>
+    </section>
+
+    <div class="sorterad"><span class="muted liten">Sortert etter sum</span>
+      <button class="mini" id="snu">${retning === "lav" ? "Lavest først" : "Høyest først"}</button></div>
+
+    <div class="liste">${vist.map(g => {
+      const nadd = data.total >= g.sum;
+      return `<article class="rad ${g.done ? "rad-gjort" : nadd ? "rad-klar" : ""}">
+        <div class="radtopp"><h4>${esc(g.title)}</h4><span class="radsum">${kr(g.sum)}</span></div>
+        <p class="tall">${g.done ? '<span class="merke-gronn">Gjennomført</span>'
+          : nadd ? '<span class="merke-gul">Låst opp</span>'
+          : `<span class="muted">${kr(g.sum - data.total)} igjen</span>`}</p>
+        <div class="verktoy">
+          <button class="mini mini-ok" data-gjort="${g.id}">${g.done ? "Åpne igjen" : "Marker gjort"}</button>
+          <input class="felt felt-mini" type="number" value="${g.sum}" data-sumfelt="${g.id}">
+          <button class="mini" data-lagre="${g.id}">Lagre sum</button>
+          <button class="mini mini-fare" data-slett="${g.id}">Slett</button>
+        </div></article>`;
+    }).join("")}</div>
+
+    <section class="seksjon">
+      <h3>Nytt mål</h3>
+      <div class="skjema">
+        <input class="felt" id="nyTittel" placeholder="Hva skal han gjøre?">
+        <input class="felt felt-kort" id="nySum" type="number" placeholder="Sum i kr">
+        <button class="knapp" id="leggMal">Legg til mål</button>
+      </div>
+    </section>
+
+    <footer class="bunn">
+      <span class="muted liten">Sist lagret ${siden(data.updatedAt || Date.now())}</span>
+      <button class="mini mini-fare" id="nullstill">Nullstill alt</button>
+    </footer>`;
+  }
+
+  // ---- hendelser ----
+  function koble() {
+    document.querySelectorAll("[data-view]").forEach(b =>
+      b.onclick = () => { view = b.dataset.view; tegn(); });
+
+    const snu = document.getElementById("snu");
+    if (snu) snu.onclick = () => { retning = retning === "lav" ? "hoy" : "lav"; tegn(); };
+
+    const inn = document.getElementById("loggInn");
+    if (inn) {
+      const gjor = async () => {
+        try {
+          await signInWithEmailAndPassword(auth,
+            document.getElementById("epost").value.trim(),
+            document.getElementById("passord").value);
+          view = "admin"; tegn();
+        } catch (e) {
+          document.getElementById("loginFeil").classList.remove("skjult");
+        }
+      };
+      inn.onclick = gjor;
+      document.getElementById("passord").onkeydown = e => { if (e.key === "Enter") gjor(); };
+    }
+
+    const ut = document.getElementById("loggUt");
+    if (ut) ut.onclick = () => { signOut(auth); view = "tavle"; tegn(); };
+
+    document.querySelectorAll("[data-legg]").forEach(b => b.onclick = () => leggTil(b.dataset.legg));
+    document.querySelectorAll("[data-rai]").forEach(b => b.onclick = () => leggTil(data.rai.unit, "rai"));
+
+    const eget = document.getElementById("leggEget");
+    if (eget) {
+      const felt = document.getElementById("egetBelop");
+      const send = () => { if (felt.value !== "") { leggTil(felt.value); felt.value = ""; } };
+      eget.onclick = send;
+      felt.onkeydown = e => { if (e.key === "Enter") send(); };
+    }
+
+    const a = document.getElementById("angre"); if (a) a.onclick = angre;
+    const rt = document.getElementById("raiTatt"); if (rt) rt.onclick = () => settRai({ tatt: (data.rai.tatt || 0) + 1 });
+    const ra = document.getElementById("raiAngre"); if (ra) ra.onclick = () => settRai({ tatt: Math.max(0, (data.rai.tatt || 0) - 1) });
+
+    document.querySelectorAll("[data-gjort]").forEach(b =>
+      b.onclick = () => settMal(b.dataset.gjort, { done: !data.goals[b.dataset.gjort].done }));
+    document.querySelectorAll("[data-lagre]").forEach(b =>
+      b.onclick = () => {
+        const f = document.querySelector('[data-sumfelt="' + b.dataset.lagre + '"]');
+        settMal(b.dataset.lagre, { sum: Math.max(1, Number(f.value) || 1) });
+      });
+    document.querySelectorAll("[data-slett]").forEach(b =>
+      b.onclick = () => { if (confirm("Slette dette målet?")) slettMal(b.dataset.slett); });
+
+    const nm = document.getElementById("leggMal");
+    if (nm) nm.onclick = () => {
+      const t = document.getElementById("nyTittel").value.trim();
+      if (t) nyttMal(t, document.getElementById("nySum").value);
+    };
+
+    const nl = document.getElementById("nullstill");
+    if (nl) nl.onclick = () => { if (confirm("Nullstille sum og status?")) nullstill(); };
+  }
+}
+</script>
+</body>
+</html>
