@@ -88,6 +88,7 @@ p{margin:0;}
 
 .seksjon{margin:26px 0;}
 .seksjon h3{font-size:17px; margin-bottom:12px;}
+.huk{display:flex; align-items:center; gap:8px; font-size:14px; color:var(--muted);}
 .skjema{display:flex; flex-wrap:wrap; gap:8px; align-items:center; background:var(--panel); border:1px solid var(--line); border-radius:11px; padding:14px;}
 
 .bunn{display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; border-top:2px solid var(--line); padding-top:14px; margin-top:18px;}
@@ -164,7 +165,8 @@ async function start() {
   const { initializeApp } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js");
   const { getDatabase, ref, onValue, set, update, runTransaction } =
     await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js");
-  const { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } =
+  const { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged,
+    setPersistence, browserLocalPersistence, browserSessionPersistence } =
     await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js");
 
   const app = initializeApp(firebaseConfig);
@@ -298,6 +300,7 @@ async function start() {
       <p class="muted">Logg inn for å oppdatere tavla. Seerne trenger ikke konto.</p>
       <input class="felt" id="epost" type="email" placeholder="E-post" autocomplete="username">
       <input class="felt" id="passord" type="password" placeholder="Passord" autocomplete="current-password">
+      <label class="huk" style="margin:4px 0 14px"><input type="checkbox" id="husk" checked> Husk meg på denne enheten</label>
       <div class="rad-knapper">
         <button class="knapp" id="loggInn">Logg inn</button>
         <button class="knapp knapp-svak" data-view="tavle">Tilbake</button>
@@ -380,7 +383,7 @@ async function start() {
     return `
     <header class="topp">
       <div><h1 class="merke">Adminside</h1>
-      <p class="undertekst">Legg inn beløp én gang. Det teller mot alle målene.</p></div>
+      <p class="undertekst">Innlogget som ${esc(bruker && bruker.email ? bruker.email : "")}</p></div>
       <div class="rad-knapper">
         <button class="knapp knapp-svak" data-view="tavle">Se tavla</button>
         <button class="knapp knapp-svak" id="loggUt">Logg ut</button>
@@ -458,7 +461,10 @@ async function start() {
   // ---- hendelser ----
   function koble() {
     document.querySelectorAll("[data-view]").forEach(b =>
-      b.onclick = () => { view = b.dataset.view; tegn(); });
+      b.onclick = () => {
+        view = (b.dataset.view === "login" && bruker) ? "admin" : b.dataset.view;
+        tegn();
+      });
 
     const snu = document.getElementById("snu");
     if (snu) snu.onclick = () => { retning = retning === "lav" ? "hoy" : "lav"; tegn(); };
@@ -467,6 +473,8 @@ async function start() {
     if (inn) {
       const gjor = async () => {
         try {
+          const husk = document.getElementById("husk").checked;
+          await setPersistence(auth, husk ? browserLocalPersistence : browserSessionPersistence);
           await signInWithEmailAndPassword(auth,
             document.getElementById("epost").value.trim(),
             document.getElementById("passord").value);
