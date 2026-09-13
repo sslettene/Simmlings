@@ -67,6 +67,7 @@ p{margin:0;}
 .bar{height:8px; background:var(--spor); border-radius:99px; overflow:hidden;}
 
 .merke-gul{color:var(--ink); background:var(--gold); border-radius:99px; padding:1px 9px; font-size:12px; font-weight:600;}
+.merke-nar{color:var(--paper); border:1px solid var(--gold); border-radius:99px; padding:1px 9px; font-size:12px;}
 .merke-gronn{color:var(--ink); background:var(--gronn); border-radius:99px; padding:1px 9px; font-size:12px; font-weight:600;}
 
 .kasse{background:var(--panel); border:2px solid var(--line); border-radius:14px; padding:18px; margin:18px 0;}
@@ -370,7 +371,7 @@ async function start() {
 
     ${data.rai.av ? "" : `<section class="raikort">
       <div><h4>${esc(data.rai.title)}</h4>
-      <p class="tall muted liten">${kr(data.rai.unit)} per stk.</p></div>
+      <p class="tall muted liten">${kr(data.rai.unit)} per stk. Kommer i tillegg til stigen.</p></div>
       <div class="raitall"><span><strong>${data.rai.kjopt || 0}</strong> kjøpt</span>
       <span><strong>${data.rai.tatt || 0}</strong> tatt</span>
       ${kø > 0 ? `<span class="merke-gul">${kø} i kø</span>` : ""}</div>
@@ -393,9 +394,10 @@ async function start() {
     const merke = g.done ? '<span class="merke-gronn">Gjennomført</span>'
       : nadd ? '<span class="merke-gul">Låst opp, venter på gjennomføring</span>'
       : `<span class="muted">${kr(g.sum - data.total)} igjen</span>`;
+    const nar = (!g.done && g.nar) ? `<span class="merke-nar">${g.nar === "asap" ? "Så fort som mulig" : esc(g.nar)}</span>` : "";
     return `<article class="rad ${klasse}">
       <div class="radtopp"><h4>${esc(g.title)}</h4><span class="radsum">${kr(g.sum)}</span></div>
-      <p class="tall">${merke}</p>
+      <p class="tall">${merke}${nar}</p>
       <div class="bar"><div class="fyll ${g.done ? "fyll-gjort" : nadd ? "fyll-klar" : ""}"
         style="width:${Math.min(100, (data.total / g.sum) * 100)}%"></div></div>
     </article>`;
@@ -474,12 +476,16 @@ async function start() {
         <div class="radtopp"><h4>${esc(g.title)}</h4><span class="radsum">${kr(g.sum)}</span></div>
         <p class="tall">${g.done ? '<span class="merke-gronn">Gjennomført</span>'
           : nadd ? '<span class="merke-gul">Låst opp</span>'
-          : `<span class="muted">${kr(g.sum - data.total)} igjen</span>`}</p>
+          : `<span class="muted">${kr(g.sum - data.total)} igjen</span>`}
+          ${g.nar ? `<span class="merke-nar">${g.nar === "asap" ? "Så fort som mulig" : esc(g.nar)}</span>` : ""}</p>
         <div class="verktoy">
           <button class="mini mini-ok" data-gjort="${g.id}">${g.done ? "Åpne igjen" : "Marker gjort"}</button>
           <input class="felt" style="flex:1; min-width:180px" type="text" value="${esc(g.title)}" data-tittelfelt="${g.id}">
           <input class="felt felt-mini" type="number" value="${g.sum}" data-sumfelt="${g.id}">
+          <input class="felt felt-mini" style="width:150px" type="text" placeholder="Når, valgfritt"
+            value="${g.nar === "asap" ? "" : esc(g.nar || "")}" data-narfelt="${g.id}">
           <button class="mini" data-lagre="${g.id}">Lagre</button>
+          <button class="mini" data-asap="${g.id}">${g.nar === "asap" ? "Fjern ASAP" : "ASAP"}</button>
           <button class="mini mini-fare" data-slett="${g.id}">Slett</button>
         </div></article>`;
     }).join("")}</div>
@@ -572,10 +578,18 @@ async function start() {
         const sumFelt = document.querySelector('[data-sumfelt="' + id + '"]');
         const tittelFelt = document.querySelector('[data-tittelfelt="' + id + '"]');
         const tittel = tittelFelt.value.trim();
+        const narFelt = document.querySelector('[data-narfelt="' + id + '"]');
         settMal(id, {
           sum: Math.max(1, Number(sumFelt.value) || 1),
-          title: tittel || data.goals[id].title
+          title: tittel || data.goals[id].title,
+          nar: narFelt.value.trim() || null
         });
+      });
+
+    document.querySelectorAll("[data-asap]").forEach(b =>
+      b.onclick = () => {
+        const id = b.dataset.asap;
+        settMal(id, { nar: data.goals[id].nar === "asap" ? null : "asap" });
       });
 
     const ss = document.getElementById("sistSynlig");
