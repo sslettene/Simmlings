@@ -44,6 +44,10 @@ p{margin:0;}
 .hakk-nadd{background:var(--gold);}
 .stige-tekst{display:flex; justify-content:space-between; margin-top:7px; gap:12px;}
 
+.sistkort{display:flex; align-items:baseline; gap:10px; flex-wrap:wrap;
+  background:var(--panel); border:1px solid var(--line); border-radius:11px; padding:12px 16px; margin-bottom:14px;}
+.sistnavn{font-family:'Archivo Black',sans-serif; font-size:16px;}
+.sistbelop{color:var(--gold); font-weight:600; font-size:15px;}
 .raikort{display:flex; justify-content:space-between; align-items:center; gap:14px; flex-wrap:wrap;
   background:var(--panel); border:1px dashed var(--line); border-radius:11px; padding:14px 16px; margin-bottom:18px;}
 .raikort h4{font-size:16px;}
@@ -108,7 +112,7 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--gold); outline-
 @media (prefers-reduced-motion:reduce){ .fyll{transition:none;} .prikk{animation:none;} }
 
 /* Overlay for OBS */
-body.overlay{background:transparent; padding:0; min-height:0;}
+body.overlay{background:transparent; padding:0; min-height:0; width:max-content;}
 body.overlay .boks{
   background:rgba(27,16,41,.92); border:2px solid var(--gold); border-radius:14px;
   padding:16px 18px; max-width:520px;
@@ -221,7 +225,7 @@ async function start() {
   // ---- skriveoperasjoner ----
   const stempel = () => update(tavleRef, { updatedAt: Date.now() });
 
-  function leggTil(belop, merke, antall) {
+  function leggTil(belop, merke, antall, navn) {
     const b = Number(belop);
     const n = Number(antall) || 1;
     if (!b) return;
@@ -229,6 +233,7 @@ async function start() {
       if (!cur) return cur;
       cur.total = Math.max(0, (cur.total || 0) + b);
       cur.logg = [{ t: Date.now(), b, merke: merke || null, n }, ...(cur.logg || [])].slice(0, 12);
+      if (navn) cur.sist = { navn: String(navn).slice(0, 40), belop: b, t: Date.now(), av: cur.sist ? !!cur.sist.av : false };
       if (merke === "rai") cur.rai.kjopt = (cur.rai.kjopt || 0) + 1;
       cur.updatedAt = Date.now();
       return cur;
@@ -259,6 +264,7 @@ async function start() {
   const settMal = (id, patch) => { update(ref(db, "tavle/goals/" + id), patch); stempel(); };
   const slettMal = id => { set(ref(db, "tavle/goals/" + id), null); stempel(); };
   const settRai = patch => { update(ref(db, "tavle/rai"), patch); stempel(); };
+  const settSist = patch => { update(ref(db, "tavle/sist"), patch); stempel(); };
   function nyttMal(title, sum) {
     const id = "m" + Date.now();
     set(ref(db, "tavle/goals/" + id), { id, title, sum: Math.max(1, Number(sum) || 1000), done: false });
@@ -275,7 +281,10 @@ async function start() {
 
   const params = new URLSearchParams(location.search);
   const erOverlay = params.has("overlay");
-  if (erOverlay) document.body.classList.add("overlay");
+  if (erOverlay) {
+    document.body.classList.add("overlay");
+    document.documentElement.style.background = "transparent";
+  }
 
   function overlayHtml() {
     const liste = mal();
@@ -353,6 +362,12 @@ async function start() {
       ${neste ? `<p class="hero-rest">${kr(neste.sum - data.total)} igjen til ${esc(neste.title)}</p>` : ""}
     </section>
 
+    ${(data.sist && data.sist.navn && !data.sist.av) ? `<section class="sistkort">
+      <span class="muted liten">Sist inn</span>
+      <span class="sistnavn">${esc(data.sist.navn)}</span>
+      <span class="sistbelop">${kr(data.sist.belop)}</span>
+    </section>` : ""}
+
     ${data.rai.av ? "" : `<section class="raikort">
       <div><h4>${esc(data.rai.title)}</h4>
       <p class="tall muted liten">${kr(data.rai.unit)} per stk. Kommer i tillegg til stigen.</p></div>
@@ -411,6 +426,14 @@ async function start() {
         <input class="felt felt-mini" type="number" id="egetBelop" placeholder="kr">
         <button class="mini mini-ok" id="leggEget">Legg til</button>
         <button class="mini" data-rai="1">+1 rai rai (${data.rai.unit} kr)</button>
+      </div>
+      <div class="verktoy">
+        <span class="muted liten" style="align-self:center">Fra hvem (valgfritt)</span>
+        <input class="felt felt-mini" style="width:150px" type="text" id="giverNavn" placeholder="Navn">
+        <span class="muted liten" style="align-self:center">
+          ${(data.sist && data.sist.navn) ? "Viser nå: " + esc(data.sist.navn) + " · " + kr(data.sist.belop) : "Ingen registrert ennå"}
+        </span>
+        <button class="mini" id="sistSynlig">${(data.sist && data.sist.av) ? "Vis på tavla" : "Skjul fra tavla"}</button>
       </div>
       <div class="verktoy">
         <span class="muted liten" style="align-self:center">Rett opp hele summen</span>
@@ -513,7 +536,14 @@ async function start() {
     const eget = document.getElementById("leggEget");
     if (eget) {
       const felt = document.getElementById("egetBelop");
-      const send = () => { if (felt.value !== "") { leggTil(felt.value); felt.value = ""; } };
+      const send = () => {
+        if (felt.value === "") return;
+        const nf = document.getElementById("giverNavn");
+        const navn = nf && nf.value.trim() ? nf.value.trim() : null;
+        leggTil(felt.value, null, 1, navn);
+        felt.value = "";
+        if (nf) nf.value = "";
+      };
       eget.onclick = send;
       felt.onkeydown = e => { if (e.key === "Enter") send(); };
     }
@@ -542,6 +572,9 @@ async function start() {
           title: tittel || data.goals[id].title
         });
       });
+
+    const ss = document.getElementById("sistSynlig");
+    if (ss) ss.onclick = () => settSist({ av: !(data.sist && data.sist.av) });
 
     const st = document.getElementById("settTotal");
     if (st) st.onclick = () => settTotal(document.getElementById("rettTotal").value);
