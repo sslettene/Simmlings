@@ -234,6 +234,17 @@ async function start() {
       return cur;
     });
   }
+  function settTotal(verdi) {
+    const v = Math.max(0, Math.round(Number(verdi) || 0));
+    runTransaction(tavleRef, cur => {
+      if (!cur) return cur;
+      cur.total = v;
+      cur.logg = [{ t: Date.now(), b: 0, merke: "rettet", n: v }, ...(cur.logg || [])].slice(0, 12);
+      cur.updatedAt = Date.now();
+      return cur;
+    });
+  }
+
   function angre() {
     runTransaction(tavleRef, cur => {
       if (!cur || !cur.logg || !cur.logg.length) return cur;
@@ -378,8 +389,8 @@ async function start() {
   function adminHtml() {
     const liste = mal();
     const vist = retning === "lav" ? liste : [...liste].reverse();
-    const logg = (data.logg || []).slice(0, 6).map(l => (l.b > 0 ? "+" : "") + l.b
-      + (l.merke === "rai" ? " rai" : l.merke === "tip" ? " tips" : "")).join(", ");
+    const logg = (data.logg || []).slice(0, 6).map(l => (l.merke === "rettet" ? "satt til " + l.n : (l.b > 0 ? "+" : "") + l.b
+      + (l.merke === "rai" ? " rai" : l.merke === "tip" ? " tips" : ""))).join(", ");
     return `
     <header class="topp">
       <div><h1 class="merke">Adminside</h1>
@@ -400,6 +411,11 @@ async function start() {
         <input class="felt felt-mini" type="number" id="egetBelop" placeholder="kr">
         <button class="mini mini-ok" id="leggEget">Legg til</button>
         <button class="mini" data-rai="1">+1 rai rai (${data.rai.unit} kr)</button>
+      </div>
+      <div class="verktoy">
+        <span class="muted liten" style="align-self:center">Rett opp hele summen</span>
+        <input class="felt felt-mini" type="number" id="rettTotal" value="${data.total}">
+        <button class="mini" id="settTotal">Sett total</button>
       </div>
       ${logg ? `<p class="muted liten" style="margin-top:12px">Siste: ${esc(logg)}</p>` : ""}
     </section>
@@ -437,8 +453,9 @@ async function start() {
           : `<span class="muted">${kr(g.sum - data.total)} igjen</span>`}</p>
         <div class="verktoy">
           <button class="mini mini-ok" data-gjort="${g.id}">${g.done ? "Åpne igjen" : "Marker gjort"}</button>
+          <input class="felt" style="flex:1; min-width:180px" type="text" value="${esc(g.title)}" data-tittelfelt="${g.id}">
           <input class="felt felt-mini" type="number" value="${g.sum}" data-sumfelt="${g.id}">
-          <button class="mini" data-lagre="${g.id}">Lagre sum</button>
+          <button class="mini" data-lagre="${g.id}">Lagre</button>
           <button class="mini mini-fare" data-slett="${g.id}">Slett</button>
         </div></article>`;
     }).join("")}</div>
@@ -516,9 +533,18 @@ async function start() {
       b.onclick = () => settMal(b.dataset.gjort, { done: !data.goals[b.dataset.gjort].done }));
     document.querySelectorAll("[data-lagre]").forEach(b =>
       b.onclick = () => {
-        const f = document.querySelector('[data-sumfelt="' + b.dataset.lagre + '"]');
-        settMal(b.dataset.lagre, { sum: Math.max(1, Number(f.value) || 1) });
+        const id = b.dataset.lagre;
+        const sumFelt = document.querySelector('[data-sumfelt="' + id + '"]');
+        const tittelFelt = document.querySelector('[data-tittelfelt="' + id + '"]');
+        const tittel = tittelFelt.value.trim();
+        settMal(id, {
+          sum: Math.max(1, Number(sumFelt.value) || 1),
+          title: tittel || data.goals[id].title
+        });
       });
+
+    const st = document.getElementById("settTotal");
+    if (st) st.onclick = () => settTotal(document.getElementById("rettTotal").value);
     document.querySelectorAll("[data-slett]").forEach(b =>
       b.onclick = () => { if (confirm("Slette dette målet?")) slettMal(b.dataset.slett); });
 
