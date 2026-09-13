@@ -107,6 +107,19 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--gold); outline-
   .felt-kort{width:100%;}
 }
 @media (prefers-reduced-motion:reduce){ .fyll{transition:none;} .prikk{animation:none;} }
+
+/* Overlay for OBS */
+body.overlay{background:transparent; padding:0; min-height:0;}
+body.overlay .boks{
+  background:rgba(27,16,41,.92); border:2px solid var(--gold); border-radius:14px;
+  padding:16px 18px; max-width:520px;
+}
+body.overlay .boks.ikke-nadd{border-color:var(--line);}
+body.overlay .o-merke{font-size:12px; color:var(--gold); font-weight:600; text-transform:none; margin-bottom:2px;}
+body.overlay .o-tittel{font-size:22px; line-height:1.15; margin-bottom:12px;}
+body.overlay .o-bunn{display:flex; justify-content:space-between; align-items:baseline; gap:12px; margin-top:9px; font-size:15px; font-weight:600;}
+body.overlay .o-rest{color:var(--hot);}
+body.overlay .spor{height:16px;}
 </style>
 </head>
 <body>
@@ -252,8 +265,32 @@ async function start() {
   // ---- visning ----
   const app_ = document.getElementById("app");
 
+  const params = new URLSearchParams(location.search);
+  const erOverlay = params.has("overlay");
+  if (erOverlay) document.body.classList.add("overlay");
+
+  function overlayHtml() {
+    const liste = mal();
+    const neste = liste.find(g => data.total < g.sum);
+    const laast = liste.filter(g => data.total >= g.sum && !g.done);
+    const vis = neste || laast[0] || liste[liste.length - 1];
+    if (!vis) return "";
+    const nadd = data.total >= vis.sum;
+    return `<div class="boks ${nadd ? "" : "ikke-nadd"}">
+      <p class="o-merke">${nadd ? "Låst opp, venter på ham" : "Neste mål"}</p>
+      <h2 class="o-tittel">${esc(vis.title)}</h2>
+      <div class="spor"><div class="fyll ${nadd ? "fyll-klar" : ""}"
+        style="width:${Math.min(100, (data.total / vis.sum) * 100)}%"></div></div>
+      <div class="o-bunn">
+        <span>${kr(data.total)} <span class="muted">av ${kr(vis.sum)}</span></span>
+        ${nadd ? "" : `<span class="o-rest">${kr(vis.sum - data.total)} igjen</span>`}
+      </div>
+    </div>`;
+  }
+
   function tegn() {
-    if (!data) { app_.innerHTML = '<p class="muted" style="padding:40px">Kobler til</p>'; return; }
+    if (!data) { app_.innerHTML = erOverlay ? "" : '<p class="muted" style="padding:40px">Kobler til</p>'; return; }
+    if (erOverlay) { app_.innerHTML = overlayHtml(); return; }
     if (view === "login") app_.innerHTML = loginHtml();
     else if (view === "admin" && bruker) app_.innerHTML = adminHtml();
     else app_.innerHTML = tavleHtml();
