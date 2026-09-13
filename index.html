@@ -362,7 +362,7 @@ async function start() {
     const nadd = data.total >= g.sum;
     const klasse = g.done ? "rad-gjort" : nadd ? "rad-klar" : "";
     const merke = g.done ? '<span class="merke-gronn">Gjennomført</span>'
-      : nadd ? '<span class="merke-gul">Låst opp, venter på ham</span>'
+      : nadd ? '<span class="merke-gul">Låst opp, venter på gjennomføring</span>'
       : `<span class="muted">${kr(g.sum - data.total)} igjen</span>`;
     return `<article class="rad ${klasse}">
       <div class="radtopp"><h4>${esc(g.title)}</h4><span class="radsum">${kr(g.sum)}</span></div>
