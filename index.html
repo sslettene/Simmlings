@@ -112,10 +112,10 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--gold); outline-
 @media (prefers-reduced-motion:reduce){ .fyll{transition:none;} .prikk{animation:none;} }
 
 /* Overlay for OBS */
-body.overlay{background:transparent; padding:0; min-height:0; width:max-content;}
+body.overlay{background:transparent; padding:0; min-height:0; width:520px;}
 body.overlay .boks{
   background:rgba(27,16,41,.92); border:2px solid var(--gold); border-radius:14px;
-  padding:16px 18px; max-width:520px;
+  padding:16px 18px; width:520px;
 }
 body.overlay .boks.ikke-nadd{border-color:var(--line);}
 body.overlay .o-merke{font-size:12px; color:var(--gold); font-weight:600; text-transform:none; margin-bottom:2px;}
@@ -425,7 +425,6 @@ async function start() {
         ${[25, 50, 100, 250, 500, 1000].map(b => `<button class="mini" data-legg="${b}">+${b}</button>`).join("")}
         <input class="felt felt-mini" type="number" id="egetBelop" placeholder="kr">
         <button class="mini mini-ok" id="leggEget">Legg til</button>
-        <button class="mini" data-rai="1">+1 rai rai (${data.rai.unit} kr)</button>
       </div>
       <div class="verktoy">
         <span class="muted liten" style="align-self:center">Fra hvem (valgfritt)</span>
@@ -448,8 +447,10 @@ async function start() {
         <div><h4>${esc(data.rai.title)}</h4>
         <p class="tall muted liten">${data.rai.kjopt || 0} kjøpt · ${data.rai.tatt || 0} tatt · ${Math.max(0, (data.rai.kjopt || 0) - (data.rai.tatt || 0))} i kø${data.rai.av ? " · skjult for seerne" : ""}</p></div>
         <div class="rad-knapper">
+          <button class="mini" id="raiKjopt">Kjøpt en</button>
+          <button class="mini" id="raiKjoptAngre">Angre kjøpt</button>
           <button class="mini mini-ok" id="raiTatt">Tatt en</button>
-          <button class="mini" id="raiAngre">Angre</button>
+          <button class="mini" id="raiAngre">Angre tatt</button>
           <button class="mini" id="raiSynlig">${data.rai.av ? "Vis på tavla" : "Skjul fra tavla"}</button>
         </div>
       </div>
@@ -531,7 +532,6 @@ async function start() {
     if (ut) ut.onclick = () => { signOut(auth); view = "tavle"; tegn(); };
 
     document.querySelectorAll("[data-legg]").forEach(b => b.onclick = () => leggTil(b.dataset.legg));
-    document.querySelectorAll("[data-rai]").forEach(b => b.onclick = () => leggTil(data.rai.unit, "rai"));
 
     const eget = document.getElementById("leggEget");
     if (eget) {
@@ -549,6 +549,11 @@ async function start() {
     }
 
     const a = document.getElementById("angre"); if (a) a.onclick = angre;
+    const rk = document.getElementById("raiKjopt");
+    if (rk) rk.onclick = () => settRai({ kjopt: (data.rai.kjopt || 0) + 1 });
+    const rka = document.getElementById("raiKjoptAngre");
+    if (rka) rka.onclick = () => settRai({ kjopt: Math.max(0, (data.rai.kjopt || 0) - 1) });
+
     const rt = document.getElementById("raiTatt"); if (rt) rt.onclick = () => settRai({ tatt: (data.rai.tatt || 0) + 1 });
     const ra = document.getElementById("raiAngre"); if (ra) ra.onclick = () => settRai({ tatt: Math.max(0, (data.rai.tatt || 0) - 1) });
     const rs = document.getElementById("raiSynlig"); if (rs) rs.onclick = () => settRai({ av: !data.rai.av });
