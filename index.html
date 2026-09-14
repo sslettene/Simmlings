@@ -34,7 +34,10 @@ p{margin:0;}
 .hero{background:var(--panel); border:2px solid var(--line); border-radius:14px; padding:22px; margin:20px 0 14px; transition:border-color .8s;}
 .hero.blink{border-color:var(--hot); transition:none;}
 .hero-merkelapp{margin:0 0 4px; font-size:13px; color:var(--gold); font-weight:600;}
-.hero-tall-stor{font-size:46px; line-height:1; margin-bottom:18px;}
+.hero-rad{display:flex; justify-content:space-between; align-items:flex-end; gap:16px; margin-bottom:18px; flex-wrap:wrap;}
+.hero-tall-stor{font-size:46px; line-height:1;}
+.subteller{display:flex; flex-direction:column; align-items:flex-end; line-height:1.2;}
+.subteller strong{font-family:'Archivo Black',sans-serif; font-size:22px;}
 .hero-rest{margin:14px 0 0; font-size:15px; color:var(--hot); font-weight:600;}
 
 .spor{position:relative; height:20px; background:var(--spor); border-radius:99px; overflow:hidden;}
@@ -356,14 +359,17 @@ async function start() {
     return `
     <header class="topp">
       <div><h1 class="merke">simmlings</h1>
-      <p class="undertekst">Alt som kommer inn teller mot alle målene.</p></div>
+      <p class="undertekst">Donasjoner og subs teller mot alle målene.</p></div>
       <div class="statusrad"><span class="prikk ${tilkoblet ? "" : "prikk-av"}"></span>
       <span class="muted liten">${tilkoblet ? "oppdateres live" : "ingen forbindelse"}</span></div>
     </header>
 
     <section class="hero ${blinker ? "blink" : ""}">
       <p class="hero-merkelapp">${neste ? "Neste opp: " + esc(neste.title) : "Alle mål er låst opp"}</p>
-      <h2 class="hero-tall-stor">${kr(data.total)}</h2>
+      <div class="hero-rad">
+        <h2 class="hero-tall-stor">${kr(data.total)}</h2>
+        <div class="subteller"><strong>${data.subs || 0}</strong><span class="muted liten">subs så langt</span></div>
+      </div>
       ${stige()}
       ${neste ? `<p class="hero-rest">${kr(neste.sum - data.total)} igjen til ${esc(neste.title)}</p>` : ""}
     </section>
