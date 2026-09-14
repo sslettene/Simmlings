@@ -184,7 +184,7 @@ async function start() {
   const auth = getAuth(app);
   const tavleRef = ref(db, "tavle");
 
-  let data = null, bruker = null, view = "tavle", retning = "lav", tilkoblet = false;
+  let data = null, bruker = null, view = "tavle", retning = "lav", tilkoblet = false, bekreft = null;
   let forrigeTotal = null, blinker = false;
 
   const kr = n => new Intl.NumberFormat("nb-NO").format(Math.round(n)) + " kr";
@@ -468,6 +468,11 @@ async function start() {
           <button class="mini mini-ok" id="raiTatt">Tatt en</button>
           <button class="mini" id="raiAngre">Angre tatt</button>
           <button class="mini" id="raiSynlig">${data.rai.av ? "Vis på tavla" : "Skjul fra tavla"}</button>
+          ${bekreft === "rai"
+            ? `<span class="feil" style="align-self:center">Nullstiller kjøpt og tatt.</span>
+               <button class="mini mini-fare" id="raiNullJa">Ja, nullstill</button>
+               <button class="mini" id="raiNullNei">Avbryt</button>`
+            : `<button class="mini mini-fare" id="raiNull">Nullstill teller</button>`}
         </div>
       </div>
       <div class="verktoy">
@@ -576,6 +581,13 @@ async function start() {
 
     const rt = document.getElementById("raiTatt"); if (rt) rt.onclick = () => settRai({ tatt: (data.rai.tatt || 0) + 1 });
     const ra = document.getElementById("raiAngre"); if (ra) ra.onclick = () => settRai({ tatt: Math.max(0, (data.rai.tatt || 0) - 1) });
+    const rn = document.getElementById("raiNull");
+    if (rn) rn.onclick = () => { bekreft = "rai"; tegn(); };
+    const rnj = document.getElementById("raiNullJa");
+    if (rnj) rnj.onclick = () => { bekreft = null; settRai({ kjopt: 0, tatt: 0 }); };
+    const rnn = document.getElementById("raiNullNei");
+    if (rnn) rnn.onclick = () => { bekreft = null; tegn(); };
+
     const rs = document.getElementById("raiSynlig"); if (rs) rs.onclick = () => settRai({ av: !data.rai.av });
     const rl = document.getElementById("raiLagre");
     if (rl) rl.onclick = () => {
