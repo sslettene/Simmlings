@@ -119,7 +119,9 @@ body.overlay .boks{
   padding:16px 18px; width:520px;
 }
 body.overlay .boks.ikke-nadd{border-color:var(--line);}
-body.overlay .o-merke{font-size:12px; color:var(--gold); font-weight:600; text-transform:none; margin-bottom:2px;}
+body.overlay .o-topp{display:flex; justify-content:space-between; align-items:baseline; gap:12px; margin-bottom:2px;}
+body.overlay .o-merke{font-size:12px; color:var(--gold); font-weight:600;}
+body.overlay .o-subs{font-size:12px; color:var(--muted); white-space:nowrap;}
 body.overlay .o-tittel{font-size:22px; line-height:1.15; margin-bottom:12px;}
 body.overlay .o-bunn{display:flex; justify-content:space-between; align-items:baseline; gap:12px; margin-top:9px; font-size:15px; font-weight:600;}
 body.overlay .o-rest{color:var(--hot);}
@@ -295,7 +297,10 @@ async function start() {
     if (!vis) return "";
     const nadd = data.total >= vis.sum;
     return `<div class="boks ${nadd ? "" : "ikke-nadd"}">
-      <p class="o-merke">${nadd ? "Låst opp, venter på gjennomføring" : "Neste mål"}</p>
+      <div class="o-topp">
+        <p class="o-merke">${nadd ? "Låst opp, venter på gjennomføring" : "Neste mål"}</p>
+        <p class="o-subs">${data.subs || 0} subs</p>
+      </div>
       <h2 class="o-tittel">${esc(vis.title)}</h2>
       <div class="spor"><div class="fyll ${nadd ? "fyll-klar" : ""}"
         style="width:${Math.min(100, (data.total / vis.sum) * 100)}%"></div></div>
@@ -440,6 +445,9 @@ async function start() {
         <span class="muted liten" style="align-self:center">Rett opp hele summen</span>
         <input class="felt felt-mini" type="number" id="rettTotal" value="${data.total}">
         <button class="mini" id="settTotal">Sett total</button>
+        <span class="muted liten" style="align-self:center; margin-left:10px">Antall subs</span>
+        <input class="felt felt-mini" type="number" id="rettSubs" value="${data.subs || 0}">
+        <button class="mini" id="settSubs">Sett</button>
       </div>
       ${logg ? `<p class="muted liten" style="margin-top:12px">Siste: ${esc(logg)}</p>` : ""}
     </section>
@@ -597,6 +605,12 @@ async function start() {
 
     const st = document.getElementById("settTotal");
     if (st) st.onclick = () => settTotal(document.getElementById("rettTotal").value);
+
+    const sb = document.getElementById("settSubs");
+    if (sb) sb.onclick = () => {
+      const v = Math.max(0, Math.round(Number(document.getElementById("rettSubs").value) || 0));
+      update(tavleRef, { subs: v, updatedAt: Date.now() });
+    };
     document.querySelectorAll("[data-slett]").forEach(b =>
       b.onclick = () => { if (confirm("Slette dette målet?")) slettMal(b.dataset.slett); });
 
