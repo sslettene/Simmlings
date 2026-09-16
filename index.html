@@ -195,6 +195,14 @@ async function start() {
 
   const kr = n => new Intl.NumberFormat("nb-NO").format(Math.round(n)) + " kr";
   const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const app_ = document.getElementById("app");
+  const params = new URLSearchParams(location.search);
+  const erOverlay = params.has("overlay");
+  if (erOverlay) {
+    document.body.classList.add("overlay");
+    document.documentElement.style.background = "transparent";
+  }
+
   const naaManed = () => { const d = new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0"); };
   const nesteManed = n => { const [y, m] = (n || naaManed()).split("-").map(Number); const d = new Date(y, m, 1); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0"); };
   const manedNavn = n => { const [y, m] = n.split("-").map(Number); return new Date(y, m - 1, 1).toLocaleDateString("nb-NO", { month: "long", year: "numeric" }); };
@@ -334,14 +342,6 @@ async function start() {
   }
 
   // ---- visning ----
-  const app_ = document.getElementById("app");
-
-  const params = new URLSearchParams(location.search);
-  const erOverlay = params.has("overlay");
-  if (erOverlay) {
-    document.body.classList.add("overlay");
-    document.documentElement.style.background = "transparent";
-  }
 
   function overlayHtml() {
     const liste = mal();
