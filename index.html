@@ -206,9 +206,25 @@ async function start() {
   const naaManed = () => { const d = new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0"); };
   const nesteManed = n => { const [y, m] = (n || naaManed()).split("-").map(Number); const d = new Date(y, m, 1); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0"); };
   const manedNavn = n => { const [y, m] = n.split("-").map(Number); return new Date(y, m - 1, 1).toLocaleDateString("nb-NO", { month: "long", year: "numeric" }); };
-  const TOT = m => Number(((data && data.totaler) || {})[m || naaManed()] || 0);
-  const SUBS = m => Number(((data && data.subsTotaler) || {})[m || naaManed()] || 0);
-  const malFor = m => Object.values((data && data.goals) || {}).filter(g => (g.maned || naaManed()) === m).sort((a, b) => a.sum - b.sum);
+  const TOT = m => {
+    if (!data) return 0;
+    const k = m || naaManed();
+    if (data.totaler && data.totaler[k] != null) return Number(data.totaler[k]) || 0;
+    if (!data.totaler && data.total != null) return Number(data.total) || 0;
+    return 0;
+  };
+  const SUBS = m => {
+    if (!data) return 0;
+    const k = m || naaManed();
+    if (data.subsTotaler && data.subsTotaler[k] != null) return Number(data.subsTotaler[k]) || 0;
+    if (!data.subsTotaler && data.subs != null) return Number(data.subs) || 0;
+    return 0;
+  };
+  const gyldig = g => g && Number(g.sum) > 0;
+  const malFor = m => Object.values((data && data.goals) || {})
+    .filter(g => gyldig(g) && (g.maned || naaManed()) === m)
+    .map(g => ({ ...g, sum: Number(g.sum) }))
+    .sort((a, b) => a.sum - b.sum);
   const mal = () => malFor(naaManed());
   function tidIgjen() {
     const n = new Date();
@@ -486,7 +502,9 @@ async function start() {
 
   function adminHtml() {
     if (!valgtManed) valgtManed = naaManed();
-    const liste = mal();
+    const denne = naaManed(), neste = nesteManed();
+    const ufullstendige = Object.values(data.goals || {}).filter(g => !gyldig(g));
+    const liste = malFor(valgtManed);
     const vist = retning === "lav" ? liste : [...liste].reverse();
     const logg = (data.logg || []).slice(0, 6).map(l => (l.merke === "rettet" ? "satt til " + l.n : (l.b > 0 ? "+" : "") + l.b
       + (l.merke === "rai" ? " rai" : l.merke === "tip" ? " tips" : ""))).join(", ");
@@ -565,6 +583,17 @@ async function start() {
       </span>
       <button class="mini" id="snu">${retning === "lav" ? "Lavest først" : "Høyest først"}</button>
     </div>
+
+    ${ufullstendige.length ? `<p class="forklaring">${ufullstendige.length} mål mangler sum og vises ikke på tavla. Sett en sum, eller slett dem.</p>
+      <div class="liste" style="margin-bottom:16px">${ufullstendige.map(g => `<article class="rad">
+        <div class="radtopp"><h4>${esc(g.title || "Uten navn")}</h4><span class="radsum">sum mangler</span></div>
+        <div class="verktoy">
+          <input class="felt" style="flex:1; min-width:160px" type="text" value="${esc(g.title || "")}" data-tittelfelt="${g.id}">
+          <input class="felt felt-mini" type="number" placeholder="kr" data-sumfelt="${g.id}">
+          <input class="felt felt-mini" style="width:150px" type="text" placeholder="Når, valgfritt" data-narfelt="${g.id}">
+          <button class="mini mini-ok" data-lagre="${g.id}">Lagre</button>
+          <button class="mini mini-fare" data-slett="${g.id}">Slett</button>
+        </div></article>`).join("")}</div>` : ""}
 
     <div class="liste">${vist.map(g => {
       const nadd = TOT() >= g.sum;
