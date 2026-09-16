@@ -57,7 +57,12 @@ p{margin:0;}
 .raitall{display:flex; gap:14px; align-items:center; font-size:13px; color:var(--muted);}
 .raitall strong{font-family:'Archivo Black',sans-serif; color:var(--paper); font-size:16px; margin-right:3px;}
 
-.sorterad{display:flex; align-items:center; gap:10px; margin:0 0 12px;}
+.sorterad{display:flex; align-items:center; gap:10px; margin:0 0 12px; flex-wrap:wrap;}
+.rundeboks{display:flex; flex-direction:column; align-items:flex-end; gap:3px; text-align:right;}
+.rundenavn{font-family:'Archivo Black',sans-serif; font-size:17px; text-transform:capitalize;}
+.nedtelling{font-size:13px; color:var(--gold); font-weight:600;}
+.rad-planlagt{border-style:dashed; opacity:.75;}
+.forklaring{margin:0 0 14px; font-size:13px; color:var(--muted); border-left:2px solid var(--gold); padding-left:12px;}
 .liste{display:flex; flex-direction:column; gap:10px;}
 
 .rad{background:var(--panel); border:1px solid var(--line); border-radius:11px; padding:14px 16px;}
@@ -185,11 +190,31 @@ async function start() {
   const tavleRef = ref(db, "tavle");
 
   let data = null, bruker = null, view = "tavle", retning = "lav", tilkoblet = false, bekreft = null;
+  let valgtManed = null;
   let forrigeTotal = null, blinker = false;
 
   const kr = n => new Intl.NumberFormat("nb-NO").format(Math.round(n)) + " kr";
   const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
-  const mal = () => Object.values((data && data.goals) || {}).sort((a, b) => a.sum - b.sum);
+  const naaManed = () => { const d = new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0"); };
+  const nesteManed = n => { const [y, m] = (n || naaManed()).split("-").map(Number); const d = new Date(y, m, 1); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0"); };
+  const manedNavn = n => { const [y, m] = n.split("-").map(Number); return new Date(y, m - 1, 1).toLocaleDateString("nb-NO", { month: "long", year: "numeric" }); };
+  const TOT = m => Number(((data && data.totaler) || {})[m || naaManed()] || 0);
+  const SUBS = m => Number(((data && data.subsTotaler) || {})[m || naaManed()] || 0);
+  const malFor = m => Object.values((data && data.goals) || {}).filter(g => (g.maned || naaManed()) === m).sort((a, b) => a.sum - b.sum);
+  const mal = () => malFor(naaManed());
+  function tidIgjen() {
+    const n = new Date();
+    const slutt = new Date(n.getFullYear(), n.getMonth() + 1, 1, 0, 0, 0);
+    let s = Math.max(0, Math.floor((slutt - n) / 1000));
+    const dager = Math.floor(s / 86400); s -= dager * 86400;
+    const timer = Math.floor(s / 3600); s -= timer * 3600;
+    const min = Math.floor(s / 60);
+    return {
+      kort: dager > 0 ? dager + "d " + timer + "t" : timer + "t " + min + "m",
+      lang: dager > 1 ? dager + " dager igjen" : dager === 1 ? "1 dag og " + timer + " timer igjen"
+        : timer > 0 ? timer + " timer og " + min + " min igjen" : min + " min igjen"
+    };
+  }
   const siden = ts => {
     const s = Math.max(0, Math.round((Date.now() - ts) / 1000));
     if (s < 10) return "nå nettopp";
@@ -206,15 +231,16 @@ async function start() {
       STARTMAL.forEach(g => (data.goals[g.id] = g));
       if (bruker) set(tavleRef, data);
     } else {
-      if (forrigeTotal !== null && forrigeTotal !== v.total) {
+      const nyTotal = Number(((v.totaler) || {})[naaManed()] || 0);
+      if (forrigeTotal !== null && forrigeTotal !== nyTotal) {
         blinker = true;
         setTimeout(() => { blinker = false; tegn(); }, 1200);
       }
-      forrigeTotal = v.total;
+      forrigeTotal = nyTotal;
       data = v;
       if (!data.goals) data.goals = {};
       if (!data.rai) data.rai = { title: "Rai rai med energidrikk", unit: 25, drikke: "energidrikk", av: false, kjopt: 0, tatt: 0 };
-      if (!data.sub) data.sub = { verdi: 50, antall: 0 };
+      if (bruker && !data.totaler) migrer();
     }
     tegn();
   }, () => { tilkoblet = false; tegn(); });
@@ -237,9 +263,12 @@ async function start() {
     if (!b) return;
     runTransaction(tavleRef, cur => {
       if (!cur) return cur;
-      cur.total = Math.max(0, (cur.total || 0) + b);
+      const m = naaManed();
+      cur.totaler = cur.totaler || {};
+      cur.totaler[m] = Math.max(0, Number(cur.totaler[m] || 0) + b);
       cur.logg = [{ t: Date.now(), b, merke: merke || null, n }, ...(cur.logg || [])].slice(0, 12);
       if (navn) cur.sist = { navn: String(navn).slice(0, 40), belop: b, t: Date.now(), av: cur.sist ? !!cur.sist.av : false };
+      if (merke === "sub") { cur.subsTotaler = cur.subsTotaler || {}; cur.subsTotaler[m] = Number(cur.subsTotaler[m] || 0) + n; }
       if (merke === "rai") cur.rai.kjopt = (cur.rai.kjopt || 0) + 1;
       cur.updatedAt = Date.now();
       return cur;
@@ -249,7 +278,8 @@ async function start() {
     const v = Math.max(0, Math.round(Number(verdi) || 0));
     runTransaction(tavleRef, cur => {
       if (!cur) return cur;
-      cur.total = v;
+      cur.totaler = cur.totaler || {};
+      cur.totaler[naaManed()] = v;
       cur.logg = [{ t: Date.now(), b: 0, merke: "rettet", n: v }, ...(cur.logg || [])].slice(0, 12);
       cur.updatedAt = Date.now();
       return cur;
@@ -260,7 +290,10 @@ async function start() {
     runTransaction(tavleRef, cur => {
       if (!cur || !cur.logg || !cur.logg.length) return cur;
       const [siste, ...rest] = cur.logg;
-      cur.total = Math.max(0, cur.total - siste.b);
+      const m = naaManed();
+      cur.totaler = cur.totaler || {};
+      cur.totaler[m] = Math.max(0, Number(cur.totaler[m] || 0) - siste.b);
+      if (siste.merke === "sub") { cur.subsTotaler = cur.subsTotaler || {}; cur.subsTotaler[m] = Math.max(0, Number(cur.subsTotaler[m] || 0) - (siste.n || 1)); }
       if (siste.merke === "rai") cur.rai.kjopt = Math.max(0, cur.rai.kjopt - 1);
       cur.logg = rest;
       cur.updatedAt = Date.now();
@@ -271,15 +304,33 @@ async function start() {
   const slettMal = id => { set(ref(db, "tavle/goals/" + id), null); stempel(); };
   const settRai = patch => { update(ref(db, "tavle/rai"), patch); stempel(); };
   const settSist = patch => { update(ref(db, "tavle/sist"), patch); stempel(); };
-  function nyttMal(title, sum) {
+  function nyttMal(title, sum, maned) {
     const id = "m" + Date.now();
-    set(ref(db, "tavle/goals/" + id), { id, title, sum: Math.max(1, Number(sum) || 1000), done: false });
+    set(ref(db, "tavle/goals/" + id), { id, title, sum: Math.max(1, Number(sum) || 1000), done: false, maned: maned || naaManed() });
     stempel();
   }
-  function nullstill() {
+
+  function migrer() {
+    const m = naaManed();
     const goals = {};
+    Object.values(data.goals || {}).forEach(g => (goals[g.id] = { ...g, maned: g.maned || m }));
+    set(tavleRef, {
+      ...data, goals,
+      totaler: { [m]: Number(data.total || 0) },
+      subsTotaler: { [m]: Number(data.subs || 0) },
+      total: null, subs: null, updatedAt: Date.now()
+    });
+  }
+  function nullstill() {
+    const m = naaManed();
+    const goals = { ...(data.goals || {}) };
     mal().forEach(g => (goals[g.id] = { ...g, done: false }));
-    set(tavleRef, { ...data, total: 0, logg: [], goals, rai: { ...data.rai, kjopt: 0, tatt: 0 }, updatedAt: Date.now() });
+    set(tavleRef, {
+      ...data, goals, logg: [],
+      totaler: { ...(data.totaler || {}), [m]: 0 },
+      subsTotaler: { ...(data.subsTotaler || {}), [m]: 0 },
+      rai: { ...data.rai, kjopt: 0, tatt: 0 }, updatedAt: Date.now()
+    });
   }
 
   // ---- visning ----
@@ -294,22 +345,22 @@ async function start() {
 
   function overlayHtml() {
     const liste = mal();
-    const neste = liste.find(g => data.total < g.sum);
-    const laast = liste.filter(g => data.total >= g.sum && !g.done);
+    const neste = liste.find(g => TOT() < g.sum);
+    const laast = liste.filter(g => TOT() >= g.sum && !g.done);
     const vis = neste || laast[0] || liste[liste.length - 1];
     if (!vis) return "";
-    const nadd = data.total >= vis.sum;
+    const nadd = TOT() >= vis.sum;
     return `<div class="boks ${nadd ? "" : "ikke-nadd"}">
       <div class="o-topp">
         <p class="o-merke">${nadd ? "Låst opp, venter på gjennomføring" : "Neste mål"}</p>
-        <p class="o-subs">${data.subs || 0} subs</p>
+        <p class="o-subs">${SUBS() || 0} subs · ${tidIgjen().kort} igjen</p>
       </div>
       <h2 class="o-tittel">${esc(vis.title)}</h2>
       <div class="spor"><div class="fyll ${nadd ? "fyll-klar" : ""}"
-        style="width:${Math.min(100, (data.total / vis.sum) * 100)}%"></div></div>
+        style="width:${Math.min(100, (TOT() / vis.sum) * 100)}%"></div></div>
       <div class="o-bunn">
-        <span>${kr(data.total)} <span class="muted">av ${kr(vis.sum)}</span></span>
-        ${nadd ? "" : `<span class="o-rest">${kr(vis.sum - data.total)} igjen</span>`}
+        <span>${kr(TOT())} <span class="muted">av ${kr(vis.sum)}</span></span>
+        ${nadd ? "" : `<span class="o-rest">${kr(vis.sum - TOT())} igjen</span>`}
       </div>
     </div>`;
   }
@@ -342,9 +393,9 @@ async function start() {
     const liste = mal();
     if (!liste.length) return "";
     const topp = liste[liste.length - 1];
-    const andel = Math.min(100, (data.total / topp.sum) * 100);
+    const andel = Math.min(100, (TOT() / topp.sum) * 100);
     const hakk = liste.slice(0, -1).map(g =>
-      `<span class="hakk ${data.total >= g.sum ? "hakk-nadd" : ""}" style="left:${(g.sum / topp.sum) * 100}%"></span>`).join("");
+      `<span class="hakk ${TOT() >= g.sum ? "hakk-nadd" : ""}" style="left:${(g.sum / topp.sum) * 100}%"></span>`).join("");
     return `<div class="spor"><div class="fyll" style="width:${andel}%"></div>${hakk}</div>
       <div class="stige-tekst"><span class="muted liten">0 kr</span>
       <span class="muted liten">${esc(topp.title)} på ${kr(topp.sum)}</span></div>`;
@@ -352,26 +403,31 @@ async function start() {
 
   function tavleHtml() {
     const liste = mal();
-    const neste = liste.find(g => data.total < g.sum);
+    const neste = liste.find(g => TOT() < g.sum);
     const vist = retning === "lav" ? liste : [...liste].reverse();
     const kø = Math.max(0, (data.rai.kjopt || 0) - (data.rai.tatt || 0));
 
     return `
     <header class="topp">
       <div><h1 class="merke">simmlings</h1>
-      <p class="undertekst">Donasjoner og subs teller mot alle målene.</p></div>
-      <div class="statusrad"><span class="prikk ${tilkoblet ? "" : "prikk-av"}"></span>
-      <span class="muted liten">${tilkoblet ? "oppdateres live" : "ingen forbindelse"}</span></div>
+      <p class="undertekst">Nye mål hver måned. Donasjoner og subs teller mot alle målene.</p></div>
+      <div class="rundeboks">
+        <span class="muted liten">Månedens runde</span>
+        <span class="rundenavn">${manedNavn(naaManed())}</span>
+        <span class="nedtelling">${tidIgjen().lang}</span>
+        <span class="statusrad"><span class="prikk ${tilkoblet ? "" : "prikk-av"}"></span>
+        <span class="muted liten">${tilkoblet ? "oppdateres live" : "ingen forbindelse"}</span></span>
+      </div>
     </header>
 
     <section class="hero ${blinker ? "blink" : ""}">
       <p class="hero-merkelapp">${neste ? "Neste opp: " + esc(neste.title) : "Alle mål er låst opp"}</p>
       <div class="hero-rad">
-        <h2 class="hero-tall-stor">${kr(data.total)}</h2>
-        <div class="subteller"><strong>${data.subs || 0}</strong><span class="muted liten">subs så langt</span></div>
+        <h2 class="hero-tall-stor">${kr(TOT())}</h2>
+        <div class="subteller"><strong>${SUBS() || 0}</strong><span class="muted liten">subs så langt</span></div>
       </div>
       ${stige()}
-      ${neste ? `<p class="hero-rest">${kr(neste.sum - data.total)} igjen til ${esc(neste.title)}</p>` : ""}
+      ${neste ? `<p class="hero-rest">${kr(neste.sum - TOT())} igjen til ${esc(neste.title)}</p>` : ""}
     </section>
 
     ${(data.sist && data.sist.navn && !data.sist.av) ? `<section class="sistkort">
@@ -388,10 +444,24 @@ async function start() {
       ${kø > 0 ? `<span class="merke-gul">${kø} i kø</span>` : ""}</div>
     </section>`}
 
+    <p class="forklaring">Alle mål skal gjennomføres før måneden er omme. Ved månedsskiftet nullstilles telleren og nye mål kommer opp.</p>
+
     <div class="sorterad"><span class="muted liten">Sortert etter sum</span>
       <button class="mini" id="snu">${retning === "lav" ? "Lavest først" : "Høyest først"}</button></div>
 
     <div class="liste">${vist.map(radHtml).join("")}</div>
+
+    ${(() => {
+      const nm = nesteManed();
+      const planlagt = malFor(nm);
+      if (!planlagt.length) return "";
+      return `<section class="seksjon" style="margin-top:26px">
+        <div class="seksjon-topp"><h3>Planlagt for ${manedNavn(nm)}</h3>
+        <span class="teller">${planlagt.length}</span></div>
+        <div class="liste">${planlagt.map(g => `<article class="rad rad-planlagt">
+          <div class="radtopp"><h4>${esc(g.title)}</h4><span class="radsum">${kr(g.sum)}</span></div>
+        </article>`).join("")}</div></section>`;
+    })()}
 
     <footer class="bunn">
       <span class="muted liten">Sist oppdatert ${siden(data.updatedAt || Date.now())}</span>
@@ -400,21 +470,22 @@ async function start() {
   }
 
   function radHtml(g) {
-    const nadd = data.total >= g.sum;
+    const nadd = TOT() >= g.sum;
     const klasse = g.done ? "rad-gjort" : nadd ? "rad-klar" : "";
     const merke = g.done ? '<span class="merke-gronn">Gjennomført</span>'
       : nadd ? '<span class="merke-gul">Låst opp, venter på gjennomføring</span>'
-      : `<span class="muted">${kr(g.sum - data.total)} igjen</span>`;
+      : `<span class="muted">${kr(g.sum - TOT())} igjen</span>`;
     const nar = (!g.done && g.nar) ? `<span class="merke-nar">${g.nar === "asap" ? "Så fort som mulig" : esc(g.nar)}</span>` : "";
     return `<article class="rad ${klasse}">
       <div class="radtopp"><h4>${esc(g.title)}</h4><span class="radsum">${kr(g.sum)}</span></div>
       <p class="tall">${merke}${nar}</p>
       <div class="bar"><div class="fyll ${g.done ? "fyll-gjort" : nadd ? "fyll-klar" : ""}"
-        style="width:${Math.min(100, (data.total / g.sum) * 100)}%"></div></div>
+        style="width:${Math.min(100, (TOT() / g.sum) * 100)}%"></div></div>
     </article>`;
   }
 
   function adminHtml() {
+    if (!valgtManed) valgtManed = naaManed();
     const liste = mal();
     const vist = retning === "lav" ? liste : [...liste].reverse();
     const logg = (data.logg || []).slice(0, 6).map(l => (l.merke === "rettet" ? "satt til " + l.n : (l.b > 0 ? "+" : "") + l.b
@@ -431,7 +502,7 @@ async function start() {
 
     <section class="kasse">
       <div class="kasse-topp">
-        <div><span class="muted liten">Samlet inn</span><strong class="kasse-sum">${kr(data.total)}</strong></div>
+        <div><span class="muted liten">Samlet inn</span><strong class="kasse-sum">${kr(TOT())}</strong></div>
         <button class="mini" id="angre" ${(data.logg || []).length ? "" : "disabled"}>Angre siste</button>
       </div>
       <div class="verktoy verktoy-ren">
@@ -449,10 +520,10 @@ async function start() {
       </div>
       <div class="verktoy">
         <span class="muted liten" style="align-self:center">Rett opp hele summen</span>
-        <input class="felt felt-mini" type="number" id="rettTotal" value="${data.total}">
+        <input class="felt felt-mini" type="number" id="rettTotal" value="${TOT()}">
         <button class="mini" id="settTotal">Sett total</button>
         <span class="muted liten" style="align-self:center; margin-left:10px">Antall subs</span>
-        <input class="felt felt-mini" type="number" id="rettSubs" value="${data.subs || 0}">
+        <input class="felt felt-mini" type="number" id="rettSubs" value="${SUBS() || 0}">
         <button class="mini" id="settSubs">Sett</button>
       </div>
       ${logg ? `<p class="muted liten" style="margin-top:12px">Siste: ${esc(logg)}</p>` : ""}
@@ -486,16 +557,22 @@ async function start() {
       </div>
     </section>
 
-    <div class="sorterad"><span class="muted liten">Sortert etter sum</span>
-      <button class="mini" id="snu">${retning === "lav" ? "Lavest først" : "Høyest først"}</button></div>
+    <div class="sorterad" style="justify-content:space-between">
+      <span class="rad-knapper">
+        <button class="mini ${valgtManed === denne ? "mini-ok" : ""}" data-maned="${denne}">${manedNavn(denne)}</button>
+        <button class="mini ${valgtManed === neste ? "mini-ok" : ""}" data-maned="${neste}">${manedNavn(neste)}</button>
+        <span class="muted liten" style="align-self:center">${valgtManed === denne ? tidIgjen().lang : "planlegges nå"}</span>
+      </span>
+      <button class="mini" id="snu">${retning === "lav" ? "Lavest først" : "Høyest først"}</button>
+    </div>
 
     <div class="liste">${vist.map(g => {
-      const nadd = data.total >= g.sum;
+      const nadd = TOT() >= g.sum;
       return `<article class="rad ${g.done ? "rad-gjort" : nadd ? "rad-klar" : ""}">
         <div class="radtopp"><h4>${esc(g.title)}</h4><span class="radsum">${kr(g.sum)}</span></div>
         <p class="tall">${g.done ? '<span class="merke-gronn">Gjennomført</span>'
           : nadd ? '<span class="merke-gul">Låst opp</span>'
-          : `<span class="muted">${kr(g.sum - data.total)} igjen</span>`}
+          : `<span class="muted">${kr(g.sum - TOT())} igjen</span>`}
           ${g.nar ? `<span class="merke-nar">${g.nar === "asap" ? "Så fort som mulig" : esc(g.nar)}</span>` : ""}</p>
         <div class="verktoy">
           <button class="mini mini-ok" data-gjort="${g.id}">${g.done ? "Åpne igjen" : "Marker gjort"}</button>
@@ -505,6 +582,7 @@ async function start() {
             value="${g.nar === "asap" ? "" : esc(g.nar || "")}" data-narfelt="${g.id}">
           <button class="mini" data-lagre="${g.id}">Lagre</button>
           <button class="mini" data-asap="${g.id}">${g.nar === "asap" ? "Fjern ASAP" : "ASAP"}</button>
+          <button class="mini" data-flytt="${g.id}">${(g.maned || denne) === denne ? "Flytt til " + manedNavn(neste) : "Flytt til " + manedNavn(denne)}</button>
           <button class="mini mini-fare" data-slett="${g.id}">Slett</button>
         </div></article>`;
     }).join("")}</div>
@@ -618,6 +696,17 @@ async function start() {
         settMal(id, { nar: data.goals[id].nar === "asap" ? null : "asap" });
       });
 
+    document.querySelectorAll("[data-maned]").forEach(b =>
+      b.onclick = () => { valgtManed = b.dataset.maned; tegn(); });
+
+    document.querySelectorAll("[data-flytt]").forEach(b =>
+      b.onclick = () => {
+        const id = b.dataset.flytt;
+        const denne = naaManed();
+        const na = data.goals[id].maned || denne;
+        settMal(id, { maned: na === denne ? nesteManed() : denne });
+      });
+
     const ss = document.getElementById("sistSynlig");
     if (ss) ss.onclick = () => settSist({ av: !(data.sist && data.sist.av) });
 
@@ -627,7 +716,7 @@ async function start() {
     const sb = document.getElementById("settSubs");
     if (sb) sb.onclick = () => {
       const v = Math.max(0, Math.round(Number(document.getElementById("rettSubs").value) || 0));
-      update(tavleRef, { subs: v, updatedAt: Date.now() });
+      update(tavleRef, { ["subsTotaler/" + naaManed()]: v, updatedAt: Date.now() });
     };
     document.querySelectorAll("[data-slett]").forEach(b =>
       b.onclick = () => { if (confirm("Slette dette målet?")) slettMal(b.dataset.slett); });
@@ -635,7 +724,7 @@ async function start() {
     const nm = document.getElementById("leggMal");
     if (nm) nm.onclick = () => {
       const t = document.getElementById("nyTittel").value.trim();
-      if (t) nyttMal(t, document.getElementById("nySum").value);
+      if (t) nyttMal(t, document.getElementById("nySum").value, valgtManed || naaManed());
     };
 
     const nl = document.getElementById("nullstill");
