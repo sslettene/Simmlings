@@ -54,6 +54,8 @@ p{margin:0;}
 .raikort{display:flex; justify-content:space-between; align-items:center; gap:14px; flex-wrap:wrap;
   background:var(--panel); border:1px dashed var(--line); border-radius:11px; padding:14px 16px; margin-bottom:18px;}
 .raikort h4{font-size:16px;}
+.raibar{height:6px; background:var(--spor); border-radius:99px; overflow:hidden; margin-top:8px; max-width:280px;}
+.o-tall{color:var(--muted); font-size:13px; white-space:nowrap;}
 .raitall{display:flex; gap:14px; align-items:center; font-size:13px; color:var(--muted);}
 .raitall strong{font-family:'Archivo Black',sans-serif; color:var(--paper); font-size:16px; margin-right:3px;}
 
@@ -198,6 +200,7 @@ async function start() {
   const app_ = document.getElementById("app");
   const params = new URLSearchParams(location.search);
   const erOverlay = params.has("overlay");
+  const erRai = (params.get("overlay") || "") === "rai";
   if (erOverlay) {
     document.body.classList.add("overlay");
     document.documentElement.style.background = "transparent";
@@ -221,6 +224,29 @@ async function start() {
     return 0;
   };
   const gyldig = g => g && Number(g.sum) > 0;
+  const raiPris = () => {
+    const r = (data && data.rai) || {};
+    return Math.max(1, Number((r.priser && r.priser[0]) || r.unit) || 25);
+  };
+  const raiPrisDeretter = () => {
+    const r = (data && data.rai) || {};
+    return Math.max(1, Number((r.priser && r.priser[1]) || (r.priser && r.priser[0]) || r.unit) || 25);
+  };
+  function rullRai(cur) {
+    const r = (cur.rai = cur.rai || {});
+    let vakt = 0;
+    while (vakt++ < 100) {
+      const pris = Math.max(1, Number((r.priser && r.priser[0]) || r.unit) || 25);
+      if (Number(r.sidenSist || 0) < pris) break;
+      r.sidenSist = Number(r.sidenSist || 0) - pris;
+      r.kjopt = Number(r.kjopt || 0) + 1;
+      if (Array.isArray(r.priser) && r.priser.length > 1) r.priser = r.priser.slice(1);
+      r.unit = Math.max(1, Number((r.priser && r.priser[0]) || r.unit) || 25);
+    }
+  }
+  const raiSiden = () => Math.max(0, Number(((data && data.rai) || {}).sidenSist || 0));
+  const raiIgjen = () => Math.max(0, raiPris() - raiSiden());
+  const raiKo = () => Math.max(0, Number(((data && data.rai) || {}).kjopt || 0) - Number(((data && data.rai) || {}).tatt || 0));
   const malFor = m => Object.values((data && data.goals) || {})
     .filter(g => gyldig(g) && (g.maned || naaManed()) === m)
     .map(g => ({ ...g, sum: Number(g.sum) }))
@@ -292,6 +318,11 @@ async function start() {
       cur.totaler[m] = Math.max(0, Number(cur.totaler[m] || 0) + b);
       cur.logg = [{ t: Date.now(), b, merke: merke || null, n }, ...(cur.logg || [])].slice(0, 12);
       if (navn) cur.sist = { navn: String(navn).slice(0, 40), belop: b, t: Date.now(), av: cur.sist ? !!cur.sist.av : false };
+      if (b > 0) {
+        cur.rai = cur.rai || {};
+        cur.rai.sidenSist = Number(cur.rai.sidenSist || 0) + b;
+        rullRai(cur);
+      }
       if (merke === "sub") { cur.subsTotaler = cur.subsTotaler || {}; cur.subsTotaler[m] = Number(cur.subsTotaler[m] || 0) + n; }
       if (merke === "rai") cur.rai.kjopt = (cur.rai.kjopt || 0) + 1;
       cur.updatedAt = Date.now();
@@ -381,9 +412,27 @@ async function start() {
     </div>`;
   }
 
+  function overlayRaiHtml() {
+    const r = data.rai || {};
+    const andel = Math.min(100, (raiSiden() / raiPris()) * 100);
+    const klar = raiIgjen() === 0;
+    return `<div class="boks ${klar ? "" : "ikke-nadd"}">
+      <div class="o-topp">
+        <p class="o-merke">${klar ? "Klar til kjøp" : "Neste rai rai"}</p>
+        <p class="o-subs">${kr(raiPris())} per stk</p>
+      </div>
+      <h2 class="o-tittel">${esc(r.title || "Rai rai")}</h2>
+      <div class="spor"><div class="fyll ${klar ? "fyll-klar" : ""}" style="width:${andel}%"></div></div>
+      <div class="o-bunn">
+        <span>${klar ? "Betalt, klar til kjøp" : kr(raiIgjen()) + " igjen"}</span>
+        <span class="o-tall">${raiKo()} i kø · ${Number(r.tatt || 0)} tatt${raiPrisDeretter() !== raiPris() ? " · deretter " + kr(raiPrisDeretter()) : ""}</span>
+      </div>
+    </div>`;
+  }
+
   function tegn() {
     if (!data) { app_.innerHTML = erOverlay ? "" : '<p class="muted" style="padding:40px">Kobler til</p>'; return; }
-    if (erOverlay) { app_.innerHTML = overlayHtml(); return; }
+    if (erOverlay) { app_.innerHTML = erRai ? overlayRaiHtml() : overlayHtml(); return; }
     if (view === "login") app_.innerHTML = loginHtml();
     else if (view === "admin" && bruker) app_.innerHTML = adminHtml();
     else app_.innerHTML = tavleHtml();
@@ -454,7 +503,8 @@ async function start() {
 
     ${data.rai.av ? "" : `<section class="raikort">
       <div><h4>${esc(data.rai.title)}</h4>
-      <p class="tall muted liten">${kr(data.rai.unit)} per stk. Kommer i tillegg til stigen.</p></div>
+      <p class="tall muted liten">Neste koster ${kr(raiPris())}. ${kr(raiIgjen())} igjen.${raiPrisDeretter() !== raiPris() ? " Deretter " + kr(raiPrisDeretter()) + "." : ""}</p>
+      <div class="raibar"><div class="fyll ${raiIgjen() === 0 ? "fyll-klar" : ""}" style="width:${Math.min(100, (raiSiden() / raiPris()) * 100)}%"></div></div></div>
       <div class="raitall"><span><strong>${data.rai.kjopt || 0}</strong> kjøpt</span>
       <span><strong>${data.rai.tatt || 0}</strong> tatt</span>
       ${kø > 0 ? `<span class="merke-gul">${kø} i kø</span>` : ""}</div>
@@ -550,7 +600,8 @@ async function start() {
     <section class="raikort" style="display:block">
       <div style="display:flex; justify-content:space-between; align-items:center; gap:14px; flex-wrap:wrap">
         <div><h4>${esc(data.rai.title)}</h4>
-        <p class="tall muted liten">${data.rai.kjopt || 0} kjøpt · ${data.rai.tatt || 0} tatt · ${Math.max(0, (data.rai.kjopt || 0) - (data.rai.tatt || 0))} i kø${data.rai.av ? " · skjult for seerne" : ""}</p></div>
+        <p class="tall muted liten">${data.rai.kjopt || 0} kjøpt · ${data.rai.tatt || 0} tatt · ${raiKo()} i kø${data.rai.av ? " · skjult for seerne" : ""}<br>
+        ${raiSiden()} av ${raiPris()} kr mot neste. Registreres automatisk når summen er nådd.</p></div>
         <div class="rad-knapper">
           <button class="mini" id="raiKjopt">Kjøpt en</button>
           <button class="mini" id="raiKjoptAngre">Angre kjøpt</button>
@@ -569,8 +620,10 @@ async function start() {
           <option value="energidrikk" ${data.rai.drikke === "øl" ? "" : "selected"}>Energidrikk</option>
           <option value="øl" ${data.rai.drikke === "øl" ? "selected" : ""}>Øl</option>
         </select>
-        <input class="felt felt-mini" type="number" id="raiPris" value="${data.rai.unit}">
-        <span class="muted liten" style="align-self:center">kr per stk</span>
+        <span class="muted liten" style="align-self:center">neste koster</span>
+        <input class="felt felt-mini" type="number" id="raiPris" value="${raiPris()}">
+        <span class="muted liten" style="align-self:center">deretter</span>
+        <input class="felt felt-mini" type="number" id="raiPris2" value="${raiPrisDeretter()}">
         <button class="mini mini-ok" id="raiLagre">Lagre</button>
       </div>
     </section>
@@ -691,7 +744,7 @@ async function start() {
     const rn = document.getElementById("raiNull");
     if (rn) rn.onclick = () => { bekreft = "rai"; tegn(); };
     const rnj = document.getElementById("raiNullJa");
-    if (rnj) rnj.onclick = () => { bekreft = null; settRai({ kjopt: 0, tatt: 0 }); };
+    if (rnj) rnj.onclick = () => { bekreft = null; settRai({ kjopt: 0, tatt: 0, sidenSist: 0 }); };
     const rnn = document.getElementById("raiNullNei");
     if (rnn) rnn.onclick = () => { bekreft = null; tegn(); };
 
@@ -699,8 +752,9 @@ async function start() {
     const rl = document.getElementById("raiLagre");
     if (rl) rl.onclick = () => {
       const drikke = document.getElementById("raiDrikke").value;
-      const pris = Math.max(1, Number(document.getElementById("raiPris").value) || data.rai.unit);
-      settRai({ drikke, unit: pris, title: "Rai rai med " + drikke });
+      const p1 = Math.max(1, Number(document.getElementById("raiPris").value) || raiPris());
+      const p2 = Math.max(1, Number(document.getElementById("raiPris2").value) || p1);
+      settRai({ drikke, unit: p1, priser: [p1, p2], title: "Rai rai med " + drikke });
     };
 
     document.querySelectorAll("[data-gjort]").forEach(b =>
