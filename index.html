@@ -9,7 +9,7 @@
 
 :root{
   --ink:#1B1029; --panel:#271A38; --panel2:#33234A; --line:#453058; --spor:#140B20;
-  --paper:#F4EDE6; --muted:#A996BD; --hot:#FF3D6E; --gold:#FFC24B; --gronn:#5FD68B;
+  --paper:#F4EDE6; --muted:#A996BD; --hot:#FF3D6E; --gold:#FFC24B; --gronn:#5FD68B; --gronnere:#32D9A4;
 }
 *{box-sizing:border-box;}
 html,body{margin:0; padding:0; background:var(--ink);}
@@ -64,6 +64,26 @@ p{margin:0;}
 .rundenavn{font-family:'Archivo Black',sans-serif; font-size:17px; text-transform:capitalize;}
 .nedtelling{font-size:13px; color:var(--gold); font-weight:600;}
 .rad-planlagt{border-style:dashed; opacity:.75;}
+
+.stripe{display:flex; justify-content:space-between; align-items:center; gap:16px; flex-wrap:wrap;
+  background:linear-gradient(90deg,#1E3A34,var(--panel)); border:2px solid var(--gronnere);
+  border-radius:12px; padding:14px 16px; margin-bottom:16px;}
+.stripe-merke{font-size:12px; color:var(--gronnere); font-weight:600; margin-bottom:3px;}
+.stripe-tittel{font-family:'Archivo Black',sans-serif; font-size:20px; line-height:1.15;}
+.stripe-under{font-size:13px; color:var(--muted); margin-top:3px;}
+.stripe-knapp{background:var(--gronnere); color:#10231F; border-radius:8px; padding:9px 16px;
+  font-size:14px; font-weight:600; text-decoration:none; white-space:nowrap;}
+
+.post{display:flex; align-items:baseline; gap:14px; background:var(--panel); border:1px solid var(--line);
+  border-radius:10px; padding:10px 14px;}
+.post-tid{font-size:14px; font-weight:600; color:var(--muted); white-space:nowrap; min-width:112px;}
+.post-tittel{font-size:16px;}
+.post-aktiv{border-color:var(--gronnere);}
+.post-aktiv .post-tid{color:var(--gronnere);}
+.post-ferdig{opacity:.45;}
+.post-ferdig .post-tittel{text-decoration:line-through; text-decoration-thickness:2px;}
+.post-na{margin-left:auto; background:var(--gronnere); color:#10231F; border-radius:99px;
+  padding:1px 9px; font-size:11px; font-weight:600; white-space:nowrap;}
 .forklaring{margin:0 0 14px; font-size:13px; color:var(--muted); border-left:2px solid var(--gold); padding-left:12px;}
 .liste{display:flex; flex-direction:column; gap:10px;}
 
@@ -228,6 +248,32 @@ async function start() {
     return 0;
   };
   const gyldig = g => g && Number(g.sum) > 0;
+
+  // 24-timers stream 17. til 18. oktober 2026
+  const PROGRAM_START = new Date(2026, 9, 17, 12, 0, 0);
+  const SPLEIS = "https://www.spleis.no/altformentalhelse";
+  const PROGRAM = [
+    [0, 120, "DJ stream"],
+    [120, 150, "Velkommen til stream"],
+    [150, 300, "Ny RP server og ny karakter"],
+    [300, 420, "IRL på Egon"],
+    [420, 600, "Fortnite"],
+    [600, 720, "GeoGuessr"],
+    [720, 750, "Bandle"],
+    [750, 900, "FC 27"],
+    [900, 1140, "Moddet Minecraft"],
+    [1140, 1200, "Frokost"],
+    [1200, 1320, "Rocket League"],
+    [1320, 1440, "Discgolf"]
+  ].map(([s, e, t]) => ({
+    start: new Date(PROGRAM_START.getTime() + s * 60000),
+    slutt: new Date(PROGRAM_START.getTime() + e * 60000),
+    tittel: t
+  }));
+  const PROGRAM_SLUTT = PROGRAM[PROGRAM.length - 1].slutt;
+  const klokke = d => String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
+  const programAktuelt = () => Date.now() < PROGRAM_SLUTT.getTime() + 60 * 60000;
+  const naaPost = () => { const n = Date.now(); return PROGRAM.find(p => n >= p.start && n < p.slutt) || null; };
   const erPauset = () => !!((data && data.pause) || {}).av;
   const pauseTekst = () => (((data && data.pause) || {}).tekst || "").trim()
     || "Måltavla er på pause. All støtte går til innsamlingen akkurat nå.";
@@ -420,6 +466,64 @@ async function start() {
     </div>`;
   }
 
+  function stripeHtml() {
+    if (!programAktuelt()) return "";
+    const n = Date.now();
+    const na = naaPost();
+    const neste = PROGRAM.find(p => p.start > n);
+    let merke, tittel, under;
+
+    if (n < PROGRAM_START.getTime()) {
+      let s = Math.floor((PROGRAM_START - n) / 1000);
+      const dager = Math.floor(s / 86400); s -= dager * 86400;
+      const timer = Math.floor(s / 3600); s -= timer * 3600;
+      const min = Math.floor(s / 60);
+      merke = "24 timer for mental helse";
+      tittel = "Starter om " + (dager > 0 ? dager + " d " : "") + timer + " t " + min + " min";
+      under = "lørdag 12:00 · første post er DJ stream";
+    } else if (na) {
+      merke = "24 timer for mental helse · nå på skjermen";
+      tittel = na.tittel;
+      under = "til " + klokke(na.slutt) + (neste ? " · deretter " + neste.tittel : " · siste post");
+    } else if (neste) {
+      merke = "24 timer for mental helse";
+      tittel = "Pause i sendinga";
+      under = neste.tittel + " fra " + klokke(neste.start);
+    } else {
+      merke = "24 timer for mental helse";
+      tittel = "Takk til alle som bidro";
+      under = "spleisen er fortsatt åpen";
+    }
+
+    return `<section class="stripe">
+      <div>
+        <p class="stripe-merke">${merke}</p>
+        <p class="stripe-tittel">${esc(tittel)}</p>
+        <p class="stripe-under">${esc(under)}</p>
+      </div>
+      <a class="stripe-knapp" href="${SPLEIS}" target="_blank" rel="noopener">Støtt spleisen</a>
+    </section>`;
+  }
+
+  function programHtml() {
+    if (!programAktuelt()) return "";
+    const n = Date.now();
+    return `<section class="seksjon" style="margin-top:26px">
+      <div class="seksjon-topp"><h3>Timeplan 17. til 18. oktober</h3>
+      <span class="teller">${PROGRAM.length}</span></div>
+      <p class="forklaring" style="border-left-color:var(--gronnere)">24 timer sammenhengende stream til inntekt for Mental Helse Ungdom. Starter lørdag 12:00.</p>
+      <div class="liste">${PROGRAM.map(p => {
+        const ferdig = n >= p.slutt;
+        const aktiv = n >= p.start && n < p.slutt;
+        return `<article class="post ${aktiv ? "post-aktiv" : ""} ${ferdig ? "post-ferdig" : ""}">
+          <span class="post-tid">${klokke(p.start)} – ${klokke(p.slutt)}</span>
+          <span class="post-tittel">${esc(p.tittel)}</span>
+          ${aktiv ? '<span class="post-na">NÅ</span>' : ""}
+        </article>`;
+      }).join("")}</div>
+    </section>`;
+  }
+
   function pauseHtml() {
     return `
     <header class="topp">
@@ -435,6 +539,9 @@ async function start() {
       <h2 class="hero-tittel" style="margin-bottom:10px">På pause</h2>
       <p class="muted" style="font-size:15px; max-width:460px; margin:0 auto">${esc(pauseTekst())}</p>
     </section>
+
+    ${stripeHtml()}
+    ${programHtml()}
 
     <footer class="bunn">
       <span class="muted liten">Sist oppdatert ${siden(data.updatedAt || Date.now())}</span>
@@ -529,6 +636,8 @@ async function start() {
       ${neste ? `<p class="hero-rest">${kr(neste.sum - TOT())} igjen til ${esc(neste.title)}</p>` : ""}
     </section>
 
+    ${stripeHtml()}
+
     ${(data.sist && data.sist.navn && !data.sist.av) ? `<section class="sistkort">
       <span class="muted liten">Sist inn</span>
       <span class="sistnavn">${esc(data.sist.navn)}</span>
@@ -550,6 +659,8 @@ async function start() {
       <button class="mini" id="snu">${retning === "lav" ? "Lavest først" : "Høyest først"}</button></div>
 
     <div class="liste">${vist.map(radHtml).join("")}</div>
+
+    ${programHtml()}
 
     ${(() => {
       const nm = nesteManed();
