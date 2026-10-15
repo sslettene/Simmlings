@@ -509,8 +509,7 @@ async function start() {
     if (!programAktuelt()) return "";
     const n = Date.now();
     return `<section class="seksjon" style="margin-top:26px">
-      <div class="seksjon-topp"><h3>Timeplan 17. til 18. oktober</h3>
-      <span class="teller">${PROGRAM.length}</span></div>
+      <div class="seksjon-topp"><h3>Timeplan 17. til 18. oktober</h3></div>
       <p class="forklaring" style="border-left-color:var(--gronnere)">24 timer sammenhengende stream til inntekt for Mental Helse Ungdom. Starter lørdag 12:00.</p>
       <div class="liste">${PROGRAM.map(p => {
         const ferdig = n >= p.slutt;
